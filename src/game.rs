@@ -10,10 +10,10 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     debug_menu::DebugMenuPlugin,
-    items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary, AutomaticWeaponDefinition},
-    skills::{ActiveSkillInstance, SkillLibrary, SkillDefinition},
+    items::{ItemId, ItemLibrary, AutomaticWeaponId, AutomaticWeaponLibrary},
+    skills::{ActiveSkillInstance, SkillLibrary}, // Removed SkillDefinition here as it was unused previously
     automatic_projectiles::AutomaticProjectile,
-    glyphs::{GlyphLibrary, GlyphDefinition, GlyphId},
+    // glyphs::{GlyphLibrary, GlyphId}, // Commented out: GlyphLibrary, GlyphId might be used if debug_menu still uses them
 };
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
@@ -32,7 +32,7 @@ pub enum AppState {
     LevelUp,
     GameOver,
     DebugUpgradeMenu,
-    GlyphScreen,
+    // GlyphScreen, // Commented out
 }
 
 #[derive(Resource, Default)]
@@ -47,13 +47,13 @@ pub struct GameState { pub score: u32, pub cycle_number: u32, pub horror_count: 
 #[derive(Event)] pub struct UpgradeChosenEvent(pub UpgradeCard);
 #[derive(Event)] pub struct ItemCollectedEvent(pub ItemId);
 
-// --- Components for Glyph Screen UI ---
+// --- Components for Glyph Screen UI (Commented out) ---
 #[derive(Component)] struct MainMenuUI;
 #[derive(Component)] struct LevelUpUI;
 #[derive(Component)] struct UpgradeButton(UpgradeCard);
 #[derive(Component)] struct GameOverUI;
 #[derive(Component)] struct InGameUI;
-#[derive(Component)] struct GlyphScreenUI;
+// #[derive(Component)] struct GlyphScreenUI; // Commented out
 #[derive(Component)] struct EnduranceText;
 #[derive(Component)] struct InsightText;
 #[derive(Component)] struct EchoesText;
@@ -61,34 +61,34 @@ pub struct GameState { pub score: u32, pub cycle_number: u32, pub horror_count: 
 #[derive(Component)] struct TimerText;
 #[derive(Component)] struct CycleText;
 
-#[derive(Component)]
-struct GlyphInventoryButton(GlyphId);
+// #[derive(Component)] // Commented out
+// struct GlyphInventoryButton(GlyphId);
 
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
-enum GlyphSocketTargetType {
-    ActiveSkill,
-    AutomaticWeapon,
-}
+// #[derive(Component, Debug, Clone, Copy, PartialEq, Eq)] // Commented out
+// enum GlyphSocketTargetType {
+//     ActiveSkill,
+//     AutomaticWeapon,
+// }
 
-#[derive(Component)]
-struct GlyphTargetSlotButton {
-    target_type: GlyphSocketTargetType,
-    target_entity_slot_idx: usize, // For active skill index, or 0 if auto weapon
-    glyph_slot_idx: usize,
-}
+// #[derive(Component)] // Commented out
+// struct GlyphTargetSlotButton {
+//     target_type: GlyphSocketTargetType,
+//     target_entity_slot_idx: usize, 
+//     glyph_slot_idx: usize,
+// }
 
-// --- Event for Socketing ---
-#[derive(Event)]
-struct SocketGlyphRequestedEvent {
-    glyph_to_socket: GlyphId,
-    target_type: GlyphSocketTargetType,
-    target_entity_slot_idx: usize,
-    glyph_slot_idx: usize,
-}
+// --- Event for Socketing (Commented out) ---
+// #[derive(Event)] // Commented out
+// struct SocketGlyphRequestedEvent {
+//     glyph_to_socket: GlyphId,
+//     target_type: GlyphSocketTargetType,
+//     target_entity_slot_idx: usize,
+//     glyph_slot_idx: usize,
+// }
 
-// --- Resource to track selected glyph ---
-#[derive(Resource, Default)]
-struct SelectedGlyphForSocketing(Option<GlyphId>);
+// --- Resource to track selected glyph (Commented out) ---
+// #[derive(Resource, Default)] // Commented out
+// struct SelectedGlyphForSocketing(Option<GlyphId>);
 
 
 fn reset_for_new_game_session(
@@ -125,11 +125,11 @@ fn log_exiting_debug_menu_state() {}
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app .add_event::<UpgradeChosenEvent>() .add_event::<ItemCollectedEvent>()
-            .add_event::<SocketGlyphRequestedEvent>() // Added event
+            // .add_event::<SocketGlyphRequestedEvent>() // Commented out
             .add_plugins((UpgradePlugin, DebugMenuPlugin)) .init_state::<AppState>()
             .init_resource::<GameConfig>() .init_resource::<GameState>()
             .init_resource::<PreviousGameState>()
-            .init_resource::<SelectedGlyphForSocketing>() // Added resource
+            // .init_resource::<SelectedGlyphForSocketing>() // Commented out
             .insert_resource(HorrorSpawnTimer {timer: Timer::from_seconds(INITIAL_SPAWN_INTERVAL_SECONDS, TimerMode::Repeating)})
             .insert_resource(MaxHorrors(INITIAL_MAX_HORRORS)) .add_plugins(EchoingSoulPlugin)
 
@@ -153,21 +153,23 @@ impl Plugin for GamePlugin {
             .add_systems(OnExit(AppState::LevelUp), (despawn_ui_by_marker::<LevelUpUI>, on_enter_ingame_state_actions))
 
             .add_systems(OnEnter(AppState::DebugUpgradeMenu), (on_enter_pause_like_state_actions, log_entering_debug_menu_state))
-            .add_systems(OnExit(AppState::DebugUpgradeMenu), (on_enter_ingame_state_actions, log_exiting_debug_menu_state))
+            .add_systems(OnExit(AppState::DebugUpgradeMenu), (on_enter_ingame_state_actions, log_exiting_debug_menu_state));
 
-            .add_systems(OnEnter(AppState::GlyphScreen), (setup_glyph_screen_ui, on_enter_pause_like_state_actions))
-            .add_systems(Update, (
-                glyph_screen_input_system,
-                glyph_screen_button_interaction_system, // Added system
-                handle_socket_glyph_request_system.run_if(on_event::<SocketGlyphRequestedEvent>()), // Added system
-            ).chain().run_if(in_state(AppState::GlyphScreen)))
-            .add_systems(OnExit(AppState::GlyphScreen), (
-                despawn_ui_by_marker::<GlyphScreenUI>,
-                on_enter_ingame_state_actions,
-                |mut selected_glyph: ResMut<SelectedGlyphForSocketing>| selected_glyph.0 = None, // Clear selection on exit
-            ))
+            // --- Commented out GlyphScreen systems ---
+            // .add_systems(OnEnter(AppState::GlyphScreen), (setup_glyph_screen_ui, on_enter_pause_like_state_actions))
+            // .add_systems(Update, (
+            //     glyph_screen_input_system,
+            //     glyph_screen_button_interaction_system,
+            //     handle_socket_glyph_request_system.run_if(on_event::<SocketGlyphRequestedEvent>()),
+            // ).chain().run_if(in_state(AppState::GlyphScreen)))
+            // .add_systems(OnExit(AppState::GlyphScreen), (
+            //     despawn_ui_by_marker::<GlyphScreenUI>,
+            //     on_enter_ingame_state_actions,
+            //     |mut selected_glyph: ResMut<SelectedGlyphForSocketing>| selected_glyph.0 = None,
+            // ))
+            // --- End Commented out GlyphScreen systems ---
 
-            .add_systems(OnEnter(AppState::GameOver), setup_game_over_ui)
+            app.add_systems(OnEnter(AppState::GameOver), setup_game_over_ui)
             .add_systems(Update, game_over_input_system.run_if(in_state(AppState::GameOver)))
             .add_systems(OnExit(AppState::GameOver), despawn_ui_by_marker::<GameOverUI>);
     }
@@ -195,28 +197,32 @@ fn global_key_listener(
             _ => {}
         }
     }
-    if keyboard_input.just_pressed(KeyCode::KeyG) {
-        match current_app_state.get() {
-            AppState::InGame => {
-                prev_game_state.0 = Some(AppState::InGame);
-                next_app_state.set(AppState::GlyphScreen);
-            }
-            AppState::DebugUpgradeMenu => {
-                prev_game_state.0 = Some(AppState::DebugUpgradeMenu);
-                next_app_state.set(AppState::GlyphScreen);
-            }
-            AppState::GlyphScreen => {
-                if let Some(prev) = prev_game_state.0.take() {
-                    next_app_state.set(prev);
-                } else {
-                    next_app_state.set(AppState::InGame);
-                }
-            }
-            _ => {}
-        }
-    }
+    // --- Commented out 'G' key for GlyphScreen ---
+    // if keyboard_input.just_pressed(KeyCode::KeyG) {
+    //     match current_app_state.get() {
+    //         AppState::InGame => {
+    //             prev_game_state.0 = Some(AppState::InGame);
+    //             next_app_state.set(AppState::GlyphScreen);
+    //         }
+    //         AppState::DebugUpgradeMenu => {
+    //             prev_game_state.0 = Some(AppState::DebugUpgradeMenu);
+    //             next_app_state.set(AppState::GlyphScreen);
+    //         }
+    //         AppState::GlyphScreen => {
+    //             if let Some(prev) = prev_game_state.0.take() {
+    //                 next_app_state.set(prev);
+    //             } else {
+    //                 next_app_state.set(AppState::InGame);
+    //             }
+    //         }
+    //         _ => {}
+    //     }
+    // }
+    // --- End Commented out 'G' key ---
 }
 
+// --- Commented out GlyphScreen functions ---
+/*
 fn glyph_screen_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut next_app_state: ResMut<NextState<AppState>>,
@@ -231,7 +237,6 @@ fn glyph_screen_input_system(
     }
 }
 
-
 fn setup_glyph_screen_ui(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -241,327 +246,35 @@ fn setup_glyph_screen_ui(
     weapon_library: Res<AutomaticWeaponLibrary>,
     selected_glyph: Res<SelectedGlyphForSocketing>,
 ) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let title_style = TextStyle { font: font.clone(), font_size: 30.0, color: Color::WHITE };
-    let header_style = TextStyle { font: font.clone(), font_size: 20.0, color: Color::CYAN };
-    let item_name_style = TextStyle { font: font.clone(), font_size: 16.0, color: Color::WHITE };
-    let item_desc_style = TextStyle { font: font.clone(), font_size: 14.0, color: Color::GRAY };
-    let slot_style = TextStyle { font: font.clone(), font_size: 14.0, color: Color::YELLOW };
-    let empty_slot_style = TextStyle { font: font.clone(), font_size: 14.0, color: Color::DARK_GRAY };
-    let button_text_style = TextStyle { font: font.clone(), font_size: 14.0, color: Color::WHITE };
-    let selected_button_color = Color::rgb(0.2, 0.5, 0.2);
-    let default_button_color = Color::rgb(0.25, 0.25, 0.25);
-
-
-    commands.spawn((
-        NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                position_type: PositionType::Absolute,
-                justify_content: JustifyContent::FlexStart, 
-                align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
-                padding: UiRect::all(Val::Px(20.0)),
-                row_gap: Val::Px(15.0),
-                ..default()
-            },
-            background_color: Color::rgba(0.05, 0.05, 0.15, 0.95).into(),
-            z_index: ZIndex::Global(20),
-            ..default()
-        },
-        GlyphScreenUI,
-        Name::new("GlyphScreenUIRoot"),
-    ))
-    .with_children(|parent| {
-        parent.spawn(TextBundle::from_section("Glyph Socketing", title_style.clone()));
-        parent.spawn(TextBundle::from_section("Press 'G' or 'Esc' to Close", item_desc_style.clone()));
-
-        parent.spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(80.0), 
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::SpaceAround,
-                ..default()
-            },
-            ..default()
-        }).with_children(|main_layout| {
-            main_layout.spawn(NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Column,
-                    width: Val::Percent(30.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    row_gap: Val::Px(5.0),
-                    border: UiRect::all(Val::Px(1.0)),
-                    ..default()
-                },
-                border_color: BorderColor(Color::GRAY),
-                background_color: Color::rgba(0.1, 0.1, 0.2, 0.8).into(),
-                ..default()
-            }).with_children(|inventory_panel| {
-                inventory_panel.spawn(TextBundle::from_section("Glyph Inventory", header_style.clone()));
-                if let Ok(player) = player_query.get_single() {
-                    if player.collected_glyphs.is_empty() {
-                        inventory_panel.spawn(TextBundle::from_section("No glyphs collected.", item_desc_style.clone()));
-                    } else {
-                        for glyph_id in player.collected_glyphs.iter() {
-                            if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) {
-                                let is_selected = selected_glyph.0 == Some(*glyph_id);
-                                inventory_panel.spawn((
-                                    ButtonBundle {
-                                        style: Style {
-                                            width: Val::Percent(100.0),
-                                            padding: UiRect::all(Val::Px(8.0)),
-                                            margin: UiRect::bottom(Val::Px(5.0)),
-                                            border: UiRect::all(Val::Px(1.0)),
-                                            flex_direction: FlexDirection::Column,
-                                            ..default()
-                                        },
-                                        border_color: BorderColor(if is_selected {Color::GREEN} else {Color::DARK_GRAY}),
-                                        background_color: (if is_selected {selected_button_color} else {default_button_color}).into(),
-                                        ..default()
-                                    },
-                                    GlyphInventoryButton(*glyph_id),
-                                    Name::new(format!("InvGlyph: {}", glyph_def.name))
-                                )).with_children(|glyph_button|{
-                                    glyph_button.spawn(TextBundle::from_section(glyph_def.name.clone(), item_name_style.clone()));
-                                    glyph_button.spawn(TextBundle::from_section(glyph_def.description.clone(), item_desc_style.clone()));
-                                });
-                            }
-                        }
-                    }
-                } else {
-                    inventory_panel.spawn(TextBundle::from_section("Error: Player not found.", item_desc_style.clone()));
-                }
-            });
-
-            main_layout.spawn(NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Column,
-                    width: Val::Percent(65.0),
-                    padding: UiRect::all(Val::Px(10.0)),
-                    row_gap: Val::Px(10.0),
-                    border: UiRect::all(Val::Px(1.0)),
-                    ..default()
-                },
-                border_color: BorderColor(Color::GRAY),
-                background_color: Color::rgba(0.1, 0.1, 0.2, 0.8).into(),
-                ..default()
-            }).with_children(|socketing_panel| {
-                socketing_panel.spawn(TextBundle::from_section("Socket Glyphs Into:", header_style.clone()));
-
-                if let Ok(player) = player_query.get_single() {
-                    socketing_panel.spawn(TextBundle::from_section("Active Skills:", item_name_style.clone()).with_style(Style{margin: UiRect::bottom(Val::Px(5.0)), ..default()}));
-                    for (skill_idx, active_skill) in player.equipped_skills.iter().enumerate() {
-                        if let Some(skill_def) = skill_library.get_skill_definition(active_skill.definition_id) {
-                            socketing_panel.spawn(NodeBundle{
-                                style: Style { flex_direction: FlexDirection::Column, margin: UiRect::bottom(Val::Px(8.0)), ..default()},
-                                ..default()
-                            }).with_children(|skill_node| {
-                                skill_node.spawn(TextBundle::from_section(format!("  {}: {}", skill_idx + 1, skill_def.name), item_name_style.clone()));
-                                for (glyph_slot_idx, glyph_id_opt) in active_skill.equipped_glyphs.iter().enumerate() {
-                                    if let Some(gid) = glyph_id_opt {
-                                        let glyph_name = glyph_library.get_glyph_definition(*gid).map_or("Unknown Glyph".to_string(), |g_def| g_def.name.clone());
-                                        skill_node.spawn(TextBundle::from_section(format!("    Slot {}: {}", glyph_slot_idx + 1, glyph_name), slot_style.clone()));
-                                    } else {
-                                        skill_node.spawn((
-                                            ButtonBundle {
-                                                style: Style {
-                                                    padding: UiRect::new(Val::Px(15.0), Val::Px(5.0), Val::Px(5.0), Val::Px(2.0)),
-                                                    margin: UiRect::left(Val::Px(20.0)),
-                                                    border: UiRect::all(Val::Px(1.0)),
-                                                    ..default()
-                                                },
-                                                border_color: BorderColor(Color::DARK_GRAY),
-                                                background_color: default_button_color.into(),
-                                                ..default()
-                                            },
-                                            GlyphTargetSlotButton {
-                                                target_type: GlyphSocketTargetType::ActiveSkill,
-                                                target_entity_slot_idx: skill_idx,
-                                                glyph_slot_idx,
-                                            },
-                                            Name::new(format!("SkillSocket:S{}:GS{}", skill_idx, glyph_slot_idx))
-                                        )).with_children(|slot_button| {
-                                            slot_button.spawn(TextBundle::from_section(format!("    Slot {}: EMPTY (Click to Socket)", glyph_slot_idx + 1), empty_slot_style.clone()));
-                                        });
-                                    }
-                                }
-                            });
-                        }
-                    }
-                    socketing_panel.spawn(NodeBundle{style: Style{height: Val::Px(10.0), ..default()}, ..default()});
-
-                    socketing_panel.spawn(TextBundle::from_section("Automatic Weapon:", item_name_style.clone()).with_style(Style{margin: UiRect::bottom(Val::Px(5.0)), ..default()}));
-                    if let Some(weapon_id) = player.equipped_weapon_id {
-                        if let Some(weapon_def) = weapon_library.get_weapon_definition(weapon_id) {
-                             socketing_panel.spawn(NodeBundle{
-                                style: Style { flex_direction: FlexDirection::Column, margin: UiRect::bottom(Val::Px(8.0)), ..default()},
-                                ..default()
-                            }).with_children(|weapon_node| {
-                                weapon_node.spawn(TextBundle::from_section(format!("  Equipped: {}", weapon_def.name), item_name_style.clone()));
-                                for (glyph_slot_idx, glyph_id_opt) in player.auto_weapon_equipped_glyphs.iter().enumerate() {
-                                    if let Some(gid) = glyph_id_opt {
-                                        let glyph_name = glyph_library.get_glyph_definition(*gid).map_or("Unknown Glyph".to_string(), |g_def| g_def.name.clone());
-                                        weapon_node.spawn(TextBundle::from_section(format!("    Slot {}: {}", glyph_slot_idx + 1, glyph_name), slot_style.clone()));
-                                    } else {
-                                        weapon_node.spawn((
-                                            ButtonBundle {
-                                                style: Style {
-                                                    padding: UiRect::new(Val::Px(15.0), Val::Px(5.0), Val::Px(5.0), Val::Px(2.0)),
-                                                    margin: UiRect::left(Val::Px(20.0)),
-                                                    border: UiRect::all(Val::Px(1.0)),
-                                                    ..default()
-                                                },
-                                                border_color: BorderColor(Color::DARK_GRAY),
-                                                background_color: default_button_color.into(),
-                                                ..default()
-                                            },
-                                            GlyphTargetSlotButton {
-                                                target_type: GlyphSocketTargetType::AutomaticWeapon,
-                                                target_entity_slot_idx: 0, // Only one auto weapon
-                                                glyph_slot_idx,
-                                            },
-                                            Name::new(format!("AutoWpnSocket:GS{}", glyph_slot_idx))
-                                        )).with_children(|slot_button| {
-                                            slot_button.spawn(TextBundle::from_section(format!("    Slot {}: EMPTY (Click to Socket)", glyph_slot_idx + 1), empty_slot_style.clone()));
-                                        });
-                                    }
-                                }
-                            });
-                        } else {
-                            socketing_panel.spawn(TextBundle::from_section("  No weapon definition found.", item_desc_style.clone()));
-                        }
-                    } else {
-                        socketing_panel.spawn(TextBundle::from_section("  No weapon equipped.", item_desc_style.clone()));
-                    }
-
-                } else {
-                     socketing_panel.spawn(TextBundle::from_section("Error: Player not found.", item_desc_style.clone()));
-                }
-            });
-        });
-    });
+    // ... entire function body commented ...
 }
 
 fn glyph_screen_button_interaction_system(
-    mut interaction_query: ParamSet<(
-        Query<(&Interaction, &GlyphInventoryButton, &mut BackgroundColor, &mut BorderColor), (Changed<Interaction>, With<Button>)>,
-        Query<(&Interaction, &GlyphTargetSlotButton, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
+    mut param_set: ParamSet<(
+        Query<(&Interaction, &GlyphInventoryButton), (Changed<Interaction>, With<Button>)>,
+        Query<(&Interaction, &GlyphTargetSlotButton), (Changed<Interaction>, With<Button>)>,
+        Query<(&Interaction, &GlyphInventoryButton, &mut BackgroundColor, &mut BorderColor), With<Button>>,
+        Query<(&Interaction, &GlyphTargetSlotButton, &mut BackgroundColor), With<Button>>,
     )>,
     mut selected_glyph_for_socketing: ResMut<SelectedGlyphForSocketing>,
     mut socket_event_writer: EventWriter<SocketGlyphRequestedEvent>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
-    mut query_glyph_buttons: Query<(&GlyphInventoryButton, &mut BackgroundColor, &mut BorderColor), Without<GlyphTargetSlotButton>>, // For resetting others
 ) {
-    let selected_glyph_id_before_click = selected_glyph_for_socketing.0;
-
-    for (interaction, inv_button, mut bg_color, mut border_color) in interaction_query.p0().iter_mut() {
-        match *interaction {
-            Interaction::Pressed => {
-                sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); // Or a more UI-specific sound
-                if selected_glyph_for_socketing.0 == Some(inv_button.0) {
-                    // Deselect if clicking the same selected glyph
-                    selected_glyph_for_socketing.0 = None;
-                    *bg_color = Color::rgb(0.25, 0.25, 0.25).into();
-                    *border_color = Color::DARK_GRAY.into();
-                } else {
-                    // Deselect all other inventory buttons visually
-                    for (other_inv_button, mut other_bg, mut other_border) in query_glyph_buttons.iter_mut() {
-                        if other_inv_button.0 != inv_button.0 {
-                             *other_bg = Color::rgb(0.25, 0.25, 0.25).into();
-                             *other_border = Color::DARK_GRAY.into();
-                        }
-                    }
-                    // Select this one
-                    selected_glyph_for_socketing.0 = Some(inv_button.0);
-                    *bg_color = Color::rgb(0.2, 0.5, 0.2).into();
-                    *border_color = Color::GREEN.into();
-                }
-            }
-            Interaction::Hovered => {
-                if selected_glyph_for_socketing.0 != Some(inv_button.0) { // Don't change hover if selected
-                    *bg_color = Color::rgb(0.35, 0.35, 0.35).into();
-                }
-            }
-            Interaction::None => {
-                 if selected_glyph_for_socketing.0 != Some(inv_button.0) { // Don't change if selected
-                    *bg_color = Color::rgb(0.25, 0.25, 0.25).into();
-                 }
-            }
-        }
-    }
-
-    for (interaction, slot_button, mut bg_color) in interaction_query.p1().iter_mut() {
-        match *interaction {
-            Interaction::Pressed => {
-                if let Some(glyph_to_socket) = selected_glyph_id_before_click {
-                    sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); // Socketing sound
-                    socket_event_writer.send(SocketGlyphRequestedEvent {
-                        glyph_to_socket,
-                        target_type: slot_button.target_type,
-                        target_entity_slot_idx: slot_button.target_entity_slot_idx,
-                        glyph_slot_idx: slot_button.glyph_slot_idx,
-                    });
-                    selected_glyph_for_socketing.0 = None; // Clear selection after attempting to socket
-                } else {
-                    sound_event_writer.send(PlaySoundEvent(SoundEffect::SurvivorHit)); // Error/denial sound
-                }
-                *bg_color = Color::rgb(0.15, 0.15, 0.15).into();
-            }
-            Interaction::Hovered => {*bg_color = Color::rgb(0.35, 0.35, 0.35).into(); }
-            Interaction::None => { *bg_color = Color::rgb(0.25, 0.25, 0.25).into(); }
-        }
-    }
+    // ... entire function body commented ...
 }
 
 fn handle_socket_glyph_request_system(
     mut events: EventReader<SocketGlyphRequestedEvent>,
     mut player_query: Query<&mut Survivor>,
-    mut commands: Commands, // To despawn and respawn UI for refresh
-    asset_server: Res<AssetServer>,
-    glyph_library: Res<GlyphLibrary>,
-    skill_library: Res<SkillLibrary>,
-    weapon_library: Res<AutomaticWeaponLibrary>,
-    selected_glyph: Res<SelectedGlyphForSocketing>, // To pass to setup function
-    ui_root_query: Query<Entity, With<GlyphScreenUI>>, // To find the UI to despawn
+    mut commands: Commands,
+    ui_root_query: Query<Entity, With<GlyphScreenUI>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+    current_app_state: Res<State<AppState>>,
 ) {
-    if let Ok(mut player) = player_query.get_single_mut() {
-        let mut refresh_ui = false;
-        for event in events.read() {
-            if let Some(collected_glyph_index) = player.collected_glyphs.iter().position(|&id| id == event.glyph_to_socket) {
-                match event.target_type {
-                    GlyphSocketTargetType::ActiveSkill => {
-                        if let Some(skill_instance) = player.equipped_skills.get_mut(event.target_entity_slot_idx) {
-                            if event.glyph_slot_idx < skill_instance.equipped_glyphs.len() && skill_instance.equipped_glyphs[event.glyph_slot_idx].is_none() {
-                                skill_instance.equipped_glyphs[event.glyph_slot_idx] = Some(event.glyph_to_socket);
-                                player.collected_glyphs.remove(collected_glyph_index);
-                                refresh_ui = true;
-                            }
-                        }
-                    }
-                    GlyphSocketTargetType::AutomaticWeapon => {
-                        if event.glyph_slot_idx < player.auto_weapon_equipped_glyphs.len() && player.auto_weapon_equipped_glyphs[event.glyph_slot_idx].is_none() {
-                            player.auto_weapon_equipped_glyphs[event.glyph_slot_idx] = Some(event.glyph_to_socket);
-                            player.collected_glyphs.remove(collected_glyph_index);
-                            refresh_ui = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        if refresh_ui {
-            // Despawn existing UI
-            for entity in ui_root_query.iter() {
-                commands.entity(entity).despawn_recursive();
-            }
-            // Respawn UI
-            setup_glyph_screen_ui(commands, asset_server, Query::new(&player_query.world(), ()), glyph_library, skill_library, weapon_library, selected_glyph);
-        }
-    }
+    // ... entire function body commented ...
 }
+*/
+// --- End Commented out GlyphScreen functions ---
 
 
 fn debug_weapon_switch_system(
@@ -592,7 +305,7 @@ fn debug_weapon_switch_system(
         if let Some(new_weapon_def) = weapon_library.get_weapon_definition(new_weapon_id) {
             survivor.equipped_weapon_id = Some(new_weapon_id);
             sanity_strain.base_fire_rate_secs = new_weapon_def.base_fire_rate_secs;
-            survivor.auto_weapon_equipped_glyphs = vec![None; new_weapon_def.base_glyph_slots as usize];
+            // survivor.auto_weapon_equipped_glyphs = vec![None; new_weapon_def.base_glyph_slots as usize]; // Commented out
         }
     }
 }
@@ -645,7 +358,7 @@ fn apply_chosen_upgrade(
             UpgradeType::IncreaseNightmareRotationSpeed(speed_increase) => { if nightmare_swarm.is_active { nightmare_swarm.rotation_speed += *speed_increase; }}
             UpgradeType::IncreaseSkillDamage { slot_index, amount } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.flat_damage_bonus += *amount; skill_instance.current_level += 1; } }
             UpgradeType::GrantRandomRelic => { if !item_library.items.is_empty() { let mut rng = rand::thread_rng(); if let Some(random_item_def) = item_library.items.choose(&mut rng) { item_collected_writer.send(ItemCollectedEvent(random_item_def.id)); } } }
-            UpgradeType::GrantSkill(skill_id_to_grant) => { let already_has_skill = player_stats.equipped_skills.iter().any(|s| s.definition_id == *skill_id_to_grant); if !already_has_skill { if player_stats.equipped_skills.len() < 5 { if let Some(skill_def) = skill_library.get_skill_definition(*skill_id_to_grant) { player_stats.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant, skill_def.base_glyph_slots)); } } } }
+            UpgradeType::GrantSkill(skill_id_to_grant) => { let already_has_skill = player_stats.equipped_skills.iter().any(|s| s.definition_id == *skill_id_to_grant); if !already_has_skill { if player_stats.equipped_skills.len() < 5 { if let Some(skill_def) = skill_library.get_skill_definition(*skill_id_to_grant) { player_stats.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant /*, skill_def.base_glyph_slots // Commented out */)); } } } }
             UpgradeType::ReduceSkillCooldown { slot_index, percent_reduction } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.cooldown_multiplier *= 1.0 - percent_reduction; skill_instance.cooldown_multiplier = skill_instance.cooldown_multiplier.max(0.1); skill_instance.current_level +=1; } }
             UpgradeType::IncreaseSkillAoERadius { slot_index, percent_increase } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.aoe_radius_multiplier *= 1.0 + percent_increase; skill_instance.current_level +=1; } }
         }

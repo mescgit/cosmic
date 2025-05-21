@@ -2,13 +2,13 @@
 use bevy::prelude::*;
 use std::time::Duration;
 use crate::{
-    survivor::{Survivor, SURVIVOR_SIZE}, 
+    survivor::{Survivor, SURVIVOR_SIZE},
     game::AppState,
     components::{Velocity, Damage, Lifetime, Health},
-    horror::Horror, 
+    horror::Horror,
     visual_effects::spawn_damage_text,
     audio::{PlaySoundEvent, SoundEffect},
-    glyphs::{GlyphId, GlyphLibrary, GlyphEffectType}, 
+    // glyphs::{GlyphId, GlyphLibrary, GlyphEffectType}, // Commented out
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
@@ -31,7 +31,7 @@ pub enum SkillEffectType {
         duration_secs: f32,
         color: Color,
     },
-    SurvivorBuff { 
+    SurvivorBuff {
         speed_multiplier_bonus: f32,
         fire_rate_multiplier_bonus: f32,
         duration_secs: f32,
@@ -51,7 +51,7 @@ pub enum SkillEffectType {
         slow_duration_secs: f32,
         color: Color,
     },
-    TemporaryShield { 
+    TemporaryShield {
         amount: i32,
         duration_secs: f32,
     },
@@ -64,7 +64,7 @@ pub struct SkillDefinition {
     pub description: String,
     pub base_cooldown: Duration,
     pub effect: SkillEffectType,
-    pub base_glyph_slots: u8,
+    // pub base_glyph_slots: u8, // Commented out
 }
 
 #[derive(Component, Debug, Clone, Reflect)]
@@ -73,18 +73,29 @@ pub struct ActiveSkillInstance {
     pub current_cooldown: Duration,
     pub current_level: u32,
     pub flat_damage_bonus: i32,
-    pub cooldown_multiplier: f32, 
-    pub aoe_radius_multiplier: f32, 
-    pub equipped_glyphs: Vec<Option<GlyphId>>,
+    pub cooldown_multiplier: f32,
+    pub aoe_radius_multiplier: f32,
+    // pub equipped_glyphs: Vec<Option<GlyphId>>, // Commented out
 }
 
 impl ActiveSkillInstance {
-    pub fn new(definition_id: SkillId, base_glyph_slots: u8) -> Self { Self { definition_id, current_cooldown: Duration::ZERO, current_level: 1, flat_damage_bonus: 0, cooldown_multiplier: 1.0, aoe_radius_multiplier: 1.0, equipped_glyphs: vec![None; base_glyph_slots as usize], } }
+    // pub fn new(definition_id: SkillId, base_glyph_slots: u8) -> Self { // Original
+    pub fn new(definition_id: SkillId /*, base_glyph_slots: u8 // Commented out */) -> Self {
+        Self {
+            definition_id,
+            current_cooldown: Duration::ZERO,
+            current_level: 1,
+            flat_damage_bonus: 0,
+            cooldown_multiplier: 1.0,
+            aoe_radius_multiplier: 1.0,
+            // equipped_glyphs: vec![None; base_glyph_slots as usize], // Commented out
+        }
+    }
     pub fn tick_cooldown(&mut self, delta: Duration) { if self.current_cooldown > Duration::ZERO { self.current_cooldown = self.current_cooldown.saturating_sub(delta); } }
     pub fn is_ready(&self) -> bool { self.current_cooldown == Duration::ZERO }
-    pub fn trigger(&mut self, base_cooldown: Duration, effective_cooldown_multiplier: f32) { 
-        let modified_cooldown_secs = base_cooldown.as_secs_f32() * effective_cooldown_multiplier; 
-        self.current_cooldown = Duration::from_secs_f32(modified_cooldown_secs.max(0.1)); 
+    pub fn trigger(&mut self, base_cooldown: Duration, effective_cooldown_multiplier: f32) {
+        let modified_cooldown_secs = base_cooldown.as_secs_f32() * effective_cooldown_multiplier;
+        self.current_cooldown = Duration::from_secs_f32(modified_cooldown_secs.max(0.1));
     }
 }
 
@@ -93,7 +104,7 @@ pub struct SkillProjectile {
     pub skill_id: SkillId,
     pub piercing_left: u32,
     pub bounces_left: u32,
-    pub already_hit_by_this_projectile: Vec<Entity>, 
+    pub already_hit_by_this_projectile: Vec<Entity>,
 }
 
 #[derive(Component)] pub struct ActiveSkillAoEEffect { pub skill_id: SkillId, pub actual_damage_per_tick: i32, pub actual_radius_sq: f32, pub tick_timer: Timer, pub lifetime_timer: Timer, pub already_hit_this_tick: Vec<Entity>, }
@@ -102,7 +113,7 @@ pub struct SkillProjectile {
 #[derive(Component, Debug, Reflect, Default)] #[reflect(Component)]
 pub struct FreezingNovaEffect { pub damage: i32, pub radius_sq: f32, pub lifetime_timer: Timer, pub slow_multiplier: f32, pub slow_duration_secs: f32, pub already_hit_entities: Vec<Entity>, }
 
-#[derive(Component, Debug, Reflect, Default)] 
+#[derive(Component, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct ActiveShield {
     pub amount: i32,
@@ -118,147 +129,149 @@ impl Plugin for SkillsPlugin {
     fn build(&self, app: &mut App) {
         app .register_type::<SkillId>() .register_type::<SkillEffectType>() .register_type::<SkillDefinition>() .register_type::<ActiveSkillInstance>() .register_type::<SkillLibrary>()
             .register_type::<FreezingNovaEffect>()
-            .register_type::<ActiveShield>() 
+            .register_type::<ActiveShield>()
             .init_resource::<SkillLibrary>()
             .add_systems(Startup, populate_skill_library)
-            .add_systems(Update, ( 
-                active_skill_cooldown_recharge_system, 
-                survivor_skill_input_system, 
-                skill_projectile_lifetime_system, 
-                skill_projectile_collision_system, 
-                active_skill_aoe_system, 
-                survivor_buff_management_system, 
+            .add_systems(Update, (
+                active_skill_cooldown_recharge_system,
+                survivor_skill_input_system,
+                skill_projectile_lifetime_system,
+                skill_projectile_collision_system,
+                active_skill_aoe_system,
+                survivor_buff_management_system,
                 freezing_nova_effect_damage_system,
-                active_shield_timer_system, 
+                active_shield_timer_system,
             ).chain().run_if(in_state(AppState::InGame)) );
     }
 }
 
 fn populate_skill_library(mut library: ResMut<SkillLibrary>) {
-    library.skills.push(SkillDefinition { id: SkillId(1), name: "Eldritch Bolt".to_string(), description: "Fires a bolt of arcane energy.".to_string(), base_cooldown: Duration::from_secs_f32(1.5), effect: SkillEffectType::Projectile { base_damage: 25, speed: 650.0, size: Vec2::new(12.0, 28.0), color: Color::rgb(0.6, 0.1, 0.9), lifetime_secs: 2.5, piercing: 0, }, base_glyph_slots: 2 });
-    library.skills.push(SkillDefinition { id: SkillId(2), name: "Mind Shatter".to_string(), description: "Unleashes a short-range psychic burst in a wide arc.".to_string(), base_cooldown: Duration::from_secs(4), effect: SkillEffectType::AreaOfEffect { base_damage_per_tick: 35, base_radius: 175.0, tick_interval_secs: 0.1, duration_secs: 0.2, color: Color::rgba(0.8, 0.2, 1.0, 0.7), }, base_glyph_slots: 1 }); 
-    library.skills.push(SkillDefinition { id: SkillId(3), name: "Void Lance".to_string(), description: "Projects a slow but potent lance of void energy that pierces foes.".to_string(), base_cooldown: Duration::from_secs_f32(2.5), effect: SkillEffectType::Projectile { base_damage: 40, speed: 400.0, size: Vec2::new(10.0, 40.0), color: Color::rgb(0.1, 0.0, 0.2), lifetime_secs: 3.0, piercing: 2, }, base_glyph_slots: 2 });
-    library.skills.push(SkillDefinition { id: SkillId(4), name: "Fleeting Agility".to_string(), description: "Briefly enhance your speed and reflexes.".to_string(), base_cooldown: Duration::from_secs(20), effect: SkillEffectType::SurvivorBuff { speed_multiplier_bonus: 0.30, fire_rate_multiplier_bonus: 0.25, duration_secs: 5.0, }, base_glyph_slots: 0 }); 
-    library.skills.push(SkillDefinition { id: SkillId(5), name: "Glacial Nova".to_string(), description: "Emits a chilling nova, damaging and slowing nearby foes.".to_string(), base_cooldown: Duration::from_secs(10), effect: SkillEffectType::FreezingNova { damage: 20, radius: 200.0, nova_duration_secs: 0.5, slow_multiplier: 0.5, slow_duration_secs: 3.0, color: Color::rgba(0.5, 0.8, 1.0, 0.6), }, base_glyph_slots: 1, });
-    library.skills.push(SkillDefinition { id: SkillId(6), name: "Psychic Sentry".to_string(), description: "Summons a stationary sentry that pulses with psychic energy.".to_string(), base_cooldown: Duration::from_secs(18), effect: SkillEffectType::SummonSentry { sentry_damage_per_tick: 15, sentry_radius: 100.0, sentry_tick_interval_secs: 0.75, sentry_duration_secs: 8.0, sentry_color: Color::rgba(0.2, 0.7, 0.9, 0.5), }, base_glyph_slots: 1 });
-    library.skills.push(SkillDefinition { id: SkillId(7), name: "Ethereal Ward".to_string(), description: "Briefly manifest an ethereal shield that absorbs incoming damage.".to_string(), base_cooldown: Duration::from_secs(25), effect: SkillEffectType::TemporaryShield { amount: 50, duration_secs: 5.0, }, base_glyph_slots: 0, });
+    library.skills.push(SkillDefinition { id: SkillId(1), name: "Eldritch Bolt".to_string(), description: "Fires a bolt of arcane energy.".to_string(), base_cooldown: Duration::from_secs_f32(1.5), effect: SkillEffectType::Projectile { base_damage: 25, speed: 650.0, size: Vec2::new(12.0, 28.0), color: Color::rgb(0.6, 0.1, 0.9), lifetime_secs: 2.5, piercing: 0, }, /* base_glyph_slots: 2 */ }); // Commented out base_glyph_slots
+    library.skills.push(SkillDefinition { id: SkillId(2), name: "Mind Shatter".to_string(), description: "Unleashes a short-range psychic burst in a wide arc.".to_string(), base_cooldown: Duration::from_secs(4), effect: SkillEffectType::AreaOfEffect { base_damage_per_tick: 35, base_radius: 175.0, tick_interval_secs: 0.1, duration_secs: 0.2, color: Color::rgba(0.8, 0.2, 1.0, 0.7), }, /* base_glyph_slots: 1 */ }); // Commented out base_glyph_slots
+    library.skills.push(SkillDefinition { id: SkillId(3), name: "Void Lance".to_string(), description: "Projects a slow but potent lance of void energy that pierces foes.".to_string(), base_cooldown: Duration::from_secs_f32(2.5), effect: SkillEffectType::Projectile { base_damage: 40, speed: 400.0, size: Vec2::new(10.0, 40.0), color: Color::rgb(0.1, 0.0, 0.2), lifetime_secs: 3.0, piercing: 2, }, /* base_glyph_slots: 2 */ }); // Commented out base_glyph_slots
+    library.skills.push(SkillDefinition { id: SkillId(4), name: "Fleeting Agility".to_string(), description: "Briefly enhance your speed and reflexes.".to_string(), base_cooldown: Duration::from_secs(20), effect: SkillEffectType::SurvivorBuff { speed_multiplier_bonus: 0.30, fire_rate_multiplier_bonus: 0.25, duration_secs: 5.0, }, /* base_glyph_slots: 0 */ }); // Commented out base_glyph_slots
+    library.skills.push(SkillDefinition { id: SkillId(5), name: "Glacial Nova".to_string(), description: "Emits a chilling nova, damaging and slowing nearby foes.".to_string(), base_cooldown: Duration::from_secs(10), effect: SkillEffectType::FreezingNova { damage: 20, radius: 200.0, nova_duration_secs: 0.5, slow_multiplier: 0.5, slow_duration_secs: 3.0, color: Color::rgba(0.5, 0.8, 1.0, 0.6), }, /* base_glyph_slots: 1 */ }); // Commented out base_glyph_slots
+    library.skills.push(SkillDefinition { id: SkillId(6), name: "Psychic Sentry".to_string(), description: "Summons a stationary sentry that pulses with psychic energy.".to_string(), base_cooldown: Duration::from_secs(18), effect: SkillEffectType::SummonSentry { sentry_damage_per_tick: 15, sentry_radius: 100.0, sentry_tick_interval_secs: 0.75, sentry_duration_secs: 8.0, sentry_color: Color::rgba(0.2, 0.7, 0.9, 0.5), }, /* base_glyph_slots: 1 */ }); // Commented out base_glyph_slots
+    library.skills.push(SkillDefinition { id: SkillId(7), name: "Ethereal Ward".to_string(), description: "Briefly manifest an ethereal shield that absorbs incoming damage.".to_string(), base_cooldown: Duration::from_secs(25), effect: SkillEffectType::TemporaryShield { amount: 50, duration_secs: 5.0, }, /* base_glyph_slots: 0 */ }); // Commented out base_glyph_slots
 }
 
 fn active_skill_cooldown_recharge_system(time: Res<Time>, mut player_query: Query<&mut Survivor>,) { if let Ok(mut player) = player_query.get_single_mut() { for skill_instance in player.equipped_skills.iter_mut() { skill_instance.tick_cooldown(time.delta()); } } }
 
-fn survivor_skill_input_system( 
-    mut commands: Commands, 
-    asset_server: Res<AssetServer>, 
-    mouse_button_input: Res<ButtonInput<MouseButton>>, 
-    keyboard_input: Res<ButtonInput<KeyCode>>, 
-    mut player_query: Query<(Entity, &mut Survivor, &Transform)>, 
-    skill_library: Res<SkillLibrary>, 
-    glyph_library: Res<GlyphLibrary>, 
+fn survivor_skill_input_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut player_query: Query<(Entity, &mut Survivor, &Transform)>,
+    skill_library: Res<SkillLibrary>,
+    // glyph_library: Res<GlyphLibrary>, // Commented out
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
-) { 
+) {
     if let Ok((player_entity, mut player, player_transform)) = player_query.get_single_mut() {
         let mut skill_to_trigger_idx: Option<usize> = None;
         if mouse_button_input.just_pressed(MouseButton::Right) { skill_to_trigger_idx = Some(0); }
         else if keyboard_input.just_pressed(KeyCode::Digit1) { skill_to_trigger_idx = Some(0); }
         else if keyboard_input.just_pressed(KeyCode::Digit2) { skill_to_trigger_idx = Some(1); }
         else if keyboard_input.just_pressed(KeyCode::Digit3) { skill_to_trigger_idx = Some(2); }
-        else if keyboard_input.just_pressed(KeyCode::KeyE) { skill_to_trigger_idx = Some(3); } 
-        else if keyboard_input.just_pressed(KeyCode::KeyR) { skill_to_trigger_idx = Some(4); } 
+        else if keyboard_input.just_pressed(KeyCode::KeyE) { skill_to_trigger_idx = Some(3); }
+        else if keyboard_input.just_pressed(KeyCode::KeyR) { skill_to_trigger_idx = Some(4); }
 
         if let Some(idx) = skill_to_trigger_idx { if idx >= player.equipped_skills.len() { return; } let current_aim_direction = player.aim_direction; let skill_instance_snapshot = player.equipped_skills[idx].clone();
             if skill_instance_snapshot.is_ready() { if let Some(skill_def) = skill_library.get_skill_definition(skill_instance_snapshot.definition_id) {
-                let mut effect_was_triggered = false; 
-                
-                let mut projectile_damage = 0; 
-                let mut projectile_piercing = 0; 
-                let mut projectile_bounces = 0; 
+                let mut effect_was_triggered = false;
+
+                let mut projectile_damage = 0;
+                let projectile_piercing: u32; // Keep for SkillEffectType::Projectile
+                let projectile_bounces: u32 = 0; // Default to 0 if not modified by glyphs
                 let mut effective_projectile_lifetime_secs = 0.0;
 
-                let mut aoe_damage_per_tick = 0; 
-                let mut effective_aoe_radius = 0.0; 
-                
-                let mut sentry_damage_val = 0; 
-                let mut effective_sentry_radius = 0.0; 
-                
-                let mut nova_damage_val = 0; 
+                let mut aoe_damage_per_tick = 0;
+                let mut effective_aoe_radius = 0.0;
+
+                let mut sentry_damage_val = 0;
+                let mut effective_sentry_radius = 0.0;
+
+                let mut nova_damage_val = 0;
                 let mut effective_nova_radius = 0.0;
-                
-                let mut shield_amount = 0; 
-                
+
+                let mut shield_amount = 0;
+
                 let mut effective_cooldown_multiplier = skill_instance_snapshot.cooldown_multiplier;
                 let mut effective_aoe_radius_multiplier = skill_instance_snapshot.aoe_radius_multiplier;
 
-                match &skill_def.effect { 
-                    SkillEffectType::Projectile { base_damage, piercing, lifetime_secs, .. } => { 
-                        projectile_damage = base_damage + skill_instance_snapshot.flat_damage_bonus; 
-                        projectile_piercing = *piercing; 
+                match &skill_def.effect {
+                    SkillEffectType::Projectile { base_damage, piercing, lifetime_secs, .. } => {
+                        projectile_damage = base_damage + skill_instance_snapshot.flat_damage_bonus;
+                        projectile_piercing = *piercing;
                         effective_projectile_lifetime_secs = *lifetime_secs;
-                    } 
-                    SkillEffectType::AreaOfEffect { base_damage_per_tick, base_radius, .. } => { 
+                    }
+                    SkillEffectType::AreaOfEffect { base_damage_per_tick, base_radius, .. } => {
                         aoe_damage_per_tick = base_damage_per_tick + skill_instance_snapshot.flat_damage_bonus;
-                        effective_aoe_radius = *base_radius; // Corrected: Dereference base_radius
-                    }, 
-                    SkillEffectType::SummonSentry { sentry_damage_per_tick: sdpt, sentry_radius: sr, ..} => { 
-                        sentry_damage_val = sdpt + skill_instance_snapshot.flat_damage_bonus; 
-                        effective_sentry_radius = *sr; 
-                    } 
-                    SkillEffectType::FreezingNova { damage, radius, .. } => { 
-                        nova_damage_val = damage + skill_instance_snapshot.flat_damage_bonus; 
-                        effective_nova_radius = *radius; 
-                    } 
+                        effective_aoe_radius = *base_radius;
+                    },
+                    SkillEffectType::SummonSentry { sentry_damage_per_tick: sdpt, sentry_radius: sr, ..} => {
+                        sentry_damage_val = sdpt + skill_instance_snapshot.flat_damage_bonus;
+                        effective_sentry_radius = *sr;
+                    }
+                    SkillEffectType::FreezingNova { damage, radius, .. } => {
+                        nova_damage_val = damage + skill_instance_snapshot.flat_damage_bonus;
+                        effective_nova_radius = *radius;
+                    }
                     SkillEffectType::TemporaryShield { amount, .. } => {
                         shield_amount = *amount + skill_instance_snapshot.flat_damage_bonus;
                     }
                     SkillEffectType::SurvivorBuff { .. } => {}
                 }
-                
-                for glyph_opt in skill_instance_snapshot.equipped_glyphs.iter() { 
-                    if let Some(glyph_id) = glyph_opt { 
-                        if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) { 
-                            match &glyph_def.effect { 
-                                GlyphEffectType::AddedChaosDamageToProjectile { damage_amount } => { 
-                                    if matches!(skill_def.effect, SkillEffectType::Projectile {..}) { projectile_damage += *damage_amount; } 
-                                } 
-                                GlyphEffectType::IncreasedAoEDamage { percent_increase } => { 
-                                    if matches!(skill_def.effect, SkillEffectType::AreaOfEffect {..}) { aoe_damage_per_tick = (aoe_damage_per_tick as f32 * (1.0 + percent_increase)).round() as i32; } 
-                                    if matches!(skill_def.effect, SkillEffectType::SummonSentry {..}) { sentry_damage_val = (sentry_damage_val as f32 * (1.0 + percent_increase)).round() as i32; } 
-                                    if matches!(skill_def.effect, SkillEffectType::FreezingNova {..}) { nova_damage_val = (nova_damage_val as f32 * (1.0 + percent_increase)).round() as i32; } 
-                                } 
-                                GlyphEffectType::ProjectileChain { bounces } => { 
-                                    if matches!(skill_def.effect, SkillEffectType::Projectile {..}) { projectile_bounces += bounces; } 
-                                }
-                                GlyphEffectType::IncreaseBaseDamage { amount } => { 
-                                    match skill_def.effect {
-                                        SkillEffectType::Projectile {..} => projectile_damage += *amount,
-                                        SkillEffectType::AreaOfEffect {..} => aoe_damage_per_tick += *amount,
-                                        SkillEffectType::SummonSentry {..} => sentry_damage_val += *amount,
-                                        SkillEffectType::FreezingNova {..} => nova_damage_val += *amount,
-                                        SkillEffectType::TemporaryShield {..} => shield_amount += *amount,
-                                        SkillEffectType::SurvivorBuff { .. } => {}
-                                    }
-                                }
-                                GlyphEffectType::IncreaseRate { percent_boost } => {
-                                    effective_cooldown_multiplier *= 1.0 - percent_boost;
-                                }
-                                GlyphEffectType::IncreaseEffectScale { percent_boost } => {
-                                    match skill_def.effect {
-                                        SkillEffectType::Projectile { .. } => {
-                                            effective_projectile_lifetime_secs *= 1.0 + percent_boost;
-                                        }
-                                        SkillEffectType::AreaOfEffect { .. } | 
-                                        SkillEffectType::SummonSentry { .. } | 
-                                        SkillEffectType::FreezingNova { .. } => {
-                                            effective_aoe_radius_multiplier *= 1.0 + percent_boost;
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            } 
-                        } 
-                    } 
-                }
-                
-                effective_cooldown_multiplier = effective_cooldown_multiplier.max(0.1); 
+
+                // --- Commented out Glyph Logic ---
+                // for glyph_opt in skill_instance_snapshot.equipped_glyphs.iter() {
+                //     if let Some(glyph_id) = glyph_opt {
+                //         if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) {
+                //             match &glyph_def.effect {
+                //                 GlyphEffectType::AddedChaosDamageToProjectile { damage_amount } => {
+                //                     if matches!(skill_def.effect, SkillEffectType::Projectile {..}) { projectile_damage += *damage_amount; }
+                //                 }
+                //                 GlyphEffectType::IncreasedAoEDamage { percent_increase } => {
+                //                     if matches!(skill_def.effect, SkillEffectType::AreaOfEffect {..}) { aoe_damage_per_tick = (aoe_damage_per_tick as f32 * (1.0 + percent_increase)).round() as i32; }
+                //                     if matches!(skill_def.effect, SkillEffectType::SummonSentry {..}) { sentry_damage_val = (sentry_damage_val as f32 * (1.0 + percent_increase)).round() as i32; }
+                //                     if matches!(skill_def.effect, SkillEffectType::FreezingNova {..}) { nova_damage_val = (nova_damage_val as f32 * (1.0 + percent_increase)).round() as i32; }
+                //                 }
+                //                 GlyphEffectType::ProjectileChain { bounces } => {
+                //                     if matches!(skill_def.effect, SkillEffectType::Projectile {..}) { projectile_bounces += bounces; }
+                //                 }
+                //                 GlyphEffectType::IncreaseBaseDamage { amount } => {
+                //                     match skill_def.effect {
+                //                         SkillEffectType::Projectile {..} => projectile_damage += *amount,
+                //                         SkillEffectType::AreaOfEffect {..} => aoe_damage_per_tick += *amount,
+                //                         SkillEffectType::SummonSentry {..} => sentry_damage_val += *amount,
+                //                         SkillEffectType::FreezingNova {..} => nova_damage_val += *amount,
+                //                         SkillEffectType::TemporaryShield {..} => shield_amount += *amount,
+                //                         SkillEffectType::SurvivorBuff { .. } => {}
+                //                     }
+                //                 }
+                //                 GlyphEffectType::IncreaseRate { percent_boost } => {
+                //                     effective_cooldown_multiplier *= 1.0 - percent_boost;
+                //                 }
+                //                 GlyphEffectType::IncreaseEffectScale { percent_boost } => {
+                //                     match skill_def.effect {
+                //                         SkillEffectType::Projectile { .. } => {
+                //                             effective_projectile_lifetime_secs *= 1.0 + percent_boost;
+                //                         }
+                //                         SkillEffectType::AreaOfEffect { .. } |
+                //                         SkillEffectType::SummonSentry { .. } |
+                //                         SkillEffectType::FreezingNova { .. } => {
+                //                             effective_aoe_radius_multiplier *= 1.0 + percent_boost;
+                //                         }
+                //                         _ => {}
+                //                     }
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+                // --- End Commented out Glyph Logic ---
+
+                effective_cooldown_multiplier = effective_cooldown_multiplier.max(0.1);
                 effective_aoe_radius_multiplier = effective_aoe_radius_multiplier.max(0.1);
 
                 if matches!(skill_def.effect, SkillEffectType::AreaOfEffect { .. }) { effective_aoe_radius *= effective_aoe_radius_multiplier; }
@@ -266,45 +279,47 @@ fn survivor_skill_input_system(
                 if matches!(skill_def.effect, SkillEffectType::FreezingNova { .. }) { effective_nova_radius *= effective_aoe_radius_multiplier; }
 
                 match &skill_def.effect {
-                    SkillEffectType::Projectile { speed, size, color, .. } => { 
-                        if current_aim_direction != Vec2::ZERO { 
-                            let projectile_spawn_position = player_transform.translation + current_aim_direction.extend(0.0) * (SURVIVOR_SIZE.y / 2.0 + size.y / 2.0); 
-                            commands.spawn(( 
-                                SpriteBundle { texture: asset_server.load("sprites/eldritch_bolt_placeholder.png"), sprite: Sprite { custom_size: Some(*size), color: *color, ..default()}, transform: Transform::from_translation(projectile_spawn_position) .with_rotation(Quat::from_rotation_z(current_aim_direction.y.atan2(current_aim_direction.x))), ..default() }, 
-                                SkillProjectile { skill_id: skill_def.id, piercing_left: projectile_piercing, bounces_left: projectile_bounces, already_hit_by_this_projectile: Vec::new()}, 
-                                Velocity(current_aim_direction * *speed), 
-                                Damage(projectile_damage), 
-                                Lifetime { timer: Timer::from_seconds(effective_projectile_lifetime_secs, TimerMode::Once) }, 
-                                Name::new(format!("SkillProjectile_{}", skill_def.name)), 
-                            )); 
-                            effect_was_triggered = true; 
-                        } 
+                    SkillEffectType::Projectile { speed, size, color, piercing,.. } => { // Added piercing back for destructuring
+                        if current_aim_direction != Vec2::ZERO {
+                            let projectile_spawn_position = player_transform.translation + current_aim_direction.extend(0.0) * (SURVIVOR_SIZE.y / 2.0 + size.y / 2.0);
+                            commands.spawn((
+                                SpriteBundle { texture: asset_server.load("sprites/eldritch_bolt_placeholder.png"), sprite: Sprite { custom_size: Some(*size), color: *color, ..default()}, transform: Transform::from_translation(projectile_spawn_position) .with_rotation(Quat::from_rotation_z(current_aim_direction.y.atan2(current_aim_direction.x))), ..default() },
+                                SkillProjectile { skill_id: skill_def.id, piercing_left: *piercing /*projectile_piercing*/, bounces_left: projectile_bounces, already_hit_by_this_projectile: Vec::new()}, // Used destructured piercing
+                                Velocity(current_aim_direction * *speed),
+                                Damage(projectile_damage),
+                                Lifetime { timer: Timer::from_seconds(effective_projectile_lifetime_secs, TimerMode::Once) },
+                                Name::new(format!("SkillProjectile_{}", skill_def.name)),
+                            ));
+                            effect_was_triggered = true;
+                        }
                     }
-                    SkillEffectType::AreaOfEffect { tick_interval_secs, duration_secs, color, .. } => { 
-                        if skill_def.id == SkillId(2) { 
+                    SkillEffectType::AreaOfEffect { tick_interval_secs, duration_secs, color, .. } => {
+                        if skill_def.id == SkillId(2) { // Mind Shatter specific logic
                             let num_projectiles = 5;
-                            let spread_angle_rad = 60.0f32.to_radians(); 
+                            let spread_angle_rad = 60.0f32.to_radians();
                             let angle_step = spread_angle_rad / (num_projectiles -1) as f32;
                             let base_angle = current_aim_direction.to_angle() - spread_angle_rad / 2.0;
                             for i in 0..num_projectiles {
                                 let angle = base_angle + angle_step * i as f32;
                                 let direction = Vec2::new(angle.cos(), angle.sin());
-                                let projectile_spawn_position = player_transform.translation + direction.extend(0.0) * (SURVIVOR_SIZE.y / 2.0 + 10.0 / 2.0); 
-                                let mut mind_shatter_fragment_damage = 15 + skill_instance_snapshot.flat_damage_bonus; 
-                                for glyph_opt in skill_instance_snapshot.equipped_glyphs.iter() {
-                                    if let Some(glyph_id) = glyph_opt { if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) {
-                                        if let GlyphEffectType::IncreaseBaseDamage { amount } = glyph_def.effect { mind_shatter_fragment_damage += amount; }
-                                    }}
-                                }
+                                let projectile_spawn_position = player_transform.translation + direction.extend(0.0) * (SURVIVOR_SIZE.y / 2.0 + 10.0 / 2.0);
+                                let mut mind_shatter_fragment_damage = 15 + skill_instance_snapshot.flat_damage_bonus;
+                                // --- Commented out Glyph Logic for Mind Shatter ---
+                                // for glyph_opt in skill_instance_snapshot.equipped_glyphs.iter() {
+                                //     if let Some(glyph_id) = glyph_opt { if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) {
+                                //         if let GlyphEffectType::IncreaseBaseDamage { amount } = glyph_def.effect { mind_shatter_fragment_damage += amount; }
+                                //     }}
+                                // }
+                                // --- End Commented out Glyph Logic ---
                                 commands.spawn((
                                     SpriteBundle { texture: asset_server.load("sprites/mind_shatter_fragment_placeholder.png"), sprite: Sprite { custom_size: Some(Vec2::new(10.0, 10.0)), color: *color, ..default()}, transform: Transform::from_translation(projectile_spawn_position).with_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))), ..default()},
-                                    SkillProjectile { skill_id: skill_def.id, piercing_left: 0, bounces_left: 0, already_hit_by_this_projectile: Vec::new(),},
+                                    SkillProjectile { skill_id: skill_def.id, piercing_left: 0, bounces_left: 0, already_hit_by_this_projectile: Vec::new(),}, // Mind shatter fragments don't pierce/bounce by default
                                     Velocity(direction * 400.0), Damage(mind_shatter_fragment_damage), Lifetime { timer: Timer::from_seconds(0.4, TimerMode::Once) }, Name::new(format!("MindShatterFragment_{}", i)),
                                 ));
                             }
                             effect_was_triggered = true;
-                        } else { 
-                            let aoe_spawn_position = player_transform.translation; 
+                        } else { // Generic AoE
+                            let aoe_spawn_position = player_transform.translation;
                             commands.spawn(( SpriteBundle { texture: asset_server.load("sprites/generic_aoe_placeholder.png"), sprite: Sprite { custom_size: Some(Vec2::splat(effective_aoe_radius * 2.0)), color: *color, ..default()}, transform: Transform::from_translation(aoe_spawn_position.truncate().extend(0.2)), ..default() }, ActiveSkillAoEEffect { skill_id: skill_def.id, actual_damage_per_tick: aoe_damage_per_tick, actual_radius_sq: effective_aoe_radius.powi(2), tick_timer: Timer::from_seconds(*tick_interval_secs, TimerMode::Repeating), lifetime_timer: Timer::from_seconds(*duration_secs, TimerMode::Once), already_hit_this_tick: Vec::new(), }, Name::new(format!("SkillAoE_{}", skill_def.name)), )); effect_was_triggered = true;
                         }
                     }
@@ -313,17 +328,17 @@ fn survivor_skill_input_system(
                     SkillEffectType::FreezingNova { nova_duration_secs, slow_multiplier, slow_duration_secs, color, .. } => { let nova_spawn_position = player_transform.translation; commands.spawn(( SpriteBundle { texture: asset_server.load("sprites/frost_nova_placeholder.png"), sprite: Sprite { custom_size: Some(Vec2::splat(0.1)), color: *color, ..default() }, transform: Transform::from_translation(nova_spawn_position.truncate().extend(0.25)), ..default() }, FreezingNovaEffect { damage: nova_damage_val, radius_sq: effective_nova_radius.powi(2), lifetime_timer: Timer::from_seconds(*nova_duration_secs, TimerMode::Once), slow_multiplier: *slow_multiplier, slow_duration_secs: *slow_duration_secs, already_hit_entities: Vec::new(), }, Name::new("GlacialNovaEffect"), )); effect_was_triggered = true; sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast)); }
                     SkillEffectType::TemporaryShield { duration_secs, .. } => {
                         commands.entity(player_entity).insert(ActiveShield {
-                            amount: shield_amount, 
+                            amount: shield_amount,
                             timer: Timer::from_seconds(*duration_secs, TimerMode::Once),
                         });
                         effect_was_triggered = true;
                     }
                 }
-                if effect_was_triggered { 
-                    if let Some(skill_instance_mut) = player.equipped_skills.get_mut(idx) { 
-                        skill_instance_mut.trigger(skill_def.base_cooldown, effective_cooldown_multiplier); 
-                    } 
-                } 
+                if effect_was_triggered {
+                    if let Some(skill_instance_mut) = player.equipped_skills.get_mut(idx) {
+                        skill_instance_mut.trigger(skill_def.base_cooldown, effective_cooldown_multiplier);
+                    }
+                }
             }
         }
         }
@@ -343,53 +358,51 @@ fn active_shield_timer_system(
     }
 }
 
-// Removed helper methods try_into_aoe_color etc. as direct field access from skill_def.effect is used.
-
-fn survivor_buff_management_system(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &mut SurvivorBuffEffect)>,) { for (entity, mut buff) in query.iter_mut() { buff.duration_timer.tick(time.delta()); if buff.duration_timer.finished() { commands.entity(entity).remove::<SurvivorBuffEffect>(); } } } 
+fn survivor_buff_management_system(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &mut SurvivorBuffEffect)>,) { for (entity, mut buff) in query.iter_mut() { buff.duration_timer.tick(time.delta()); if buff.duration_timer.finished() { commands.entity(entity).remove::<SurvivorBuffEffect>(); } } }
 fn skill_projectile_lifetime_system(mut commands: Commands, time: Res<Time>, mut query: Query<(Entity, &mut Lifetime), With<SkillProjectile>>,) { for (entity, mut lifetime) in query.iter_mut() { lifetime.timer.tick(time.delta()); if lifetime.timer.just_finished() { commands.entity(entity).despawn_recursive(); } } }
 
 fn skill_projectile_collision_system(
     mut commands: Commands,
-    mut skill_projectile_query: Query<(Entity, &GlobalTransform, &Damage, &mut SkillProjectile, &Sprite)>, 
-    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health, &Horror)>, 
+    mut skill_projectile_query: Query<(Entity, &GlobalTransform, &Damage, &mut SkillProjectile, &Sprite)>,
+    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health, &Horror)>,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     skill_library: Res<SkillLibrary>,
     player_query: Query<&Survivor>,
-    _glyph_library: Res<GlyphLibrary>, 
+    // _glyph_library: Res<GlyphLibrary>, // Commented out
 ) {
-    let Ok(player) = player_query.get_single() else { return };
+    let Ok(_player) = player_query.get_single() else { return }; // player data not directly used here after glyph removal, but keep query for context
     for (proj_entity, proj_g_transform, proj_damage, mut skill_projectile_data, proj_sprite) in skill_projectile_query.iter_mut() {
         if skill_projectile_data.already_hit_by_this_projectile.len() > (skill_projectile_data.piercing_left + skill_projectile_data.bounces_left + 5) as usize { commands.entity(proj_entity).despawn_recursive(); continue; }
         let proj_pos = proj_g_transform.translation().truncate();
-        let proj_radius = proj_sprite.custom_size.map_or(5.0, |s| (s.x.max(s.y)) / 2.0); 
+        let proj_radius = proj_sprite.custom_size.map_or(5.0, |s| (s.x.max(s.y)) / 2.0);
         for (horror_entity, horror_gtransform, mut horror_health, horror_data) in horror_query.iter_mut() {
             if skill_projectile_data.already_hit_by_this_projectile.contains(&horror_entity) { continue; }
             let horror_pos = horror_gtransform.translation().truncate();
-            let horror_radius = horror_data.size.x / 2.0; 
+            let horror_radius = horror_data.size.x / 2.0;
             if proj_pos.distance(horror_pos) < proj_radius + horror_radius {
                 sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit));
                 horror_health.0 -= proj_damage.0;
                 spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), proj_damage.0, &time);
                 skill_projectile_data.already_hit_by_this_projectile.push(horror_entity);
-                if skill_projectile_data.piercing_left > 0 { skill_projectile_data.piercing_left -= 1; } 
+                if skill_projectile_data.piercing_left > 0 { skill_projectile_data.piercing_left -= 1; }
                 else if skill_projectile_data.bounces_left > 0 {
                     skill_projectile_data.bounces_left -= 1;
                     let mut closest_new_target: Option<(Entity, f32)> = None;
-                    let chain_search_radius_sq = 250.0 * 250.0; 
-                    for (potential_target_entity, potential_target_gtransform, _health, _horror_data) in horror_query.iter_mut() { 
+                    let chain_search_radius_sq = 250.0 * 250.0;
+                    for (potential_target_entity, potential_target_gtransform, _health, _horror_data) in horror_query.iter_mut() {
                         if potential_target_entity == horror_entity || skill_projectile_data.already_hit_by_this_projectile.contains(&potential_target_entity) { continue; }
-                        let distance_sq = potential_target_gtransform.translation().truncate().distance_squared(horror_pos); 
+                        let distance_sq = potential_target_gtransform.translation().truncate().distance_squared(horror_pos);
                         if distance_sq < chain_search_radius_sq { if closest_new_target.is_none() || distance_sq < closest_new_target.unwrap().1 { closest_new_target = Some((potential_target_entity, distance_sq)); } }
                     }
                     if let Some((target_entity, _)) = closest_new_target {
-                        if let Ok((_t_ent, target_transform, _h, _horror_data_ref)) = horror_query.get(target_entity) { 
+                        if let Ok((_t_ent, target_transform, _h, _horror_data_ref)) = horror_query.get(target_entity) {
                             let direction_to_new_target = (target_transform.translation().truncate() - horror_pos).normalize_or_zero();
-                            if let Some(_active_skill_instance) = player.equipped_skills.iter().find(|s| s.definition_id == skill_projectile_data.skill_id) {
+                            // if let Some(_active_skill_instance) = _player.equipped_skills.iter().find(|s| s.definition_id == skill_projectile_data.skill_id) { // _player not needed
                                 if let Some(skill_def) = skill_library.get_skill_definition(skill_projectile_data.skill_id) {
                                     if let SkillEffectType::Projectile { speed, size, color, lifetime_secs, piercing, .. } = skill_def.effect {
-                                        let chained_damage = proj_damage.0; 
+                                        let chained_damage = proj_damage.0;
                                         commands.spawn((
                                             SpriteBundle { texture: asset_server.load("sprites/eldritch_bolt_placeholder.png"), sprite: Sprite { custom_size: Some(size), color, ..default()}, transform: Transform::from_translation(horror_pos.extend(proj_g_transform.translation().z)).with_rotation(Quat::from_rotation_z(direction_to_new_target.y.atan2(direction_to_new_target.x))), ..default() },
                                             SkillProjectile { skill_id: skill_projectile_data.skill_id, piercing_left: piercing, bounces_left: skill_projectile_data.bounces_left, already_hit_by_this_projectile: vec![target_entity], },
@@ -397,10 +410,10 @@ fn skill_projectile_collision_system(
                                         ));
                                     }
                                 }
-                            }
+                            // }
                         }
                     }
-                    commands.entity(proj_entity).despawn_recursive(); break; 
+                    commands.entity(proj_entity).despawn_recursive(); break;
                 } else { commands.entity(proj_entity).despawn_recursive(); break; }
             }
         }

@@ -3,77 +3,94 @@ Eldritch Hero: Revised Roadmap
 Core Pillars (Unchanged):
 
     Eldritch Horror Theme: All visuals, audio, enemies, items, and abilities will reflect a dark, cosmic horror aesthetic.
-    Item-Based Power (Binding of Isaac Inspired): Players will find and collect items that provide significant passive bonuses, trigger unique effects, or grant/alter abilities. Synergies between items and abilities will be key.
+Item-Based Power (Binding of Isaac Inspired): Players will find and collect items that provide significant passive bonuses, trigger unique effects, or grant/alter abilities.
+Synergies between items and abilities will be key.
     Differentiated Combat System:
-        Automatic Abilities (Weapon/Ring System): The primary source of consistent damage output for clearing most enemies, determined by equipped "Weapons" and "Rings." These are passive or automatic once equipped.
+        Automatic Abilities (Weapon/Ring System): The primary source of consistent damage output for clearing most enemies, determined by equipped "Weapons" and "Rings."
+These are passive or automatic once equipped.
         Active Skills (Manual Activation): A limited set of cooldown-based skills (e.g., 4-5 slots activated by 1,2,3,4/RMB) used for more impactful, situational, or burst damage, particularly against tougher foes or bosses.
-
 Phase 1: Thematic Transformation & Core Systems Foundation
 
     Status: COMPLETE (from a code and systems perspective, art/sound assets pending user provision).
-        Thematic reskinning of code elements is done.
+Thematic reskinning of code elements is done.
         Initial active skill system and item system (passives, on-hit/kill effects) are functional.
-        Upgrade system integrates improvements for these.
+Upgrade system integrates improvements for these.
 
 Phase 2: Defining Combat Identity & Expanding Content
 
     Goal: Solidify the dual-nature combat system (Automatic Abilities + Active Skills), expand the variety of player choices, and deepen enemy encounters.
-    Key Features:
+Key Features:
         Automatic Ability System (Weapon/Ring Focus):
             Status: SIGNIFICANT PROGRESS / NEARING COMPLETION FOR INITIAL SCOPE
             - Defined "AutomaticWeaponDefinition" and "AutomaticWeaponLibrary" to manage distinct automatic weapons.
-            - Implemented 3 distinct automatic weapon types ("Primordial Ichor Blast," "Eldritch Gatling," "Void Cannon") with unique stats and visual properties (sprite, color, size, lifetime).
-            - Survivor equips an AutomaticWeaponId, and `survivor_casting_system` uses its stats.
+- Implemented 3 distinct automatic weapon types ("Primordial Ichor Blast," "Eldritch Gatling," "Void Cannon") with unique stats and visual properties (sprite, color, size, lifetime).
+- Survivor equips an AutomaticWeaponId, and `survivor_casting_system` uses its stats.
             - Debug mechanism allows switching equipped automatic weapons.
-            - Survivor stats and Upgrades related to automatic attacks have been generalized.
+- Survivor stats and Upgrades related to automatic attacks have been generalized.
             - Projectile spawning generalized to `spawn_automatic_projectile`.
-            - Passive aura/orbiter weapons (`CircleOfWarding`, `SwarmOfNightmares`) integrated as item-granted Relic effects.
-            Next:
+- Passive aura/orbiter weapons (`CircleOfWarding`, `SwarmOfNightmares`) integrated as item-granted Relic effects.
+Next:
                 - Implement in-game acquisition methods for different Automatic Weapons (e.g., drops, level-up choices, shop).
-                - Consider if "Rings" should be a separate concept or if all auto-abilities are "Weapons".
-
-        Active Skill System Enhancements:
+- Consider if "Rings" should be a separate concept or if all auto-abilities are "Weapons".
+Active Skill System Enhancements:
             Status: GOOD PROGRESS
             - Current Active Skills: Eldritch Bolt, Mind Shatter, Void Lance, Fleeting Agility, Glacial Nova, Psychic Sentry, Ethereal Ward (7 total).
-            - "Ethereal Ward" (defensive utility shield) implemented.
+- "Ethereal Ward" (defensive utility shield) implemented.
             Next:
                 - Implement acquisition of Active Skills via item drops (Relics or new "Tome" item type).
-                - Consider adding 1 more skill with a distinct mechanic if desired (e.g., a channeled beam).
-                - Refine existing skills for balance and impact.
-
-        Glyph System Development (User-Guided):
-            Status: IN PROGRESS
-            - Decision made: Glyphs can modify both Active Skills and Automatic Abilities.
-            - `ActiveSkillInstance` supports glyphs.
-            - `AutomaticWeaponDefinition` includes `base_glyph_slots`, and `Survivor` struct tracks `auto_weapon_equipped_glyphs`.
-            - Implemented generic glyphs: "Glyph of Focused Intensity" (IncreaseBaseDamage), "Glyph of Swift Execution" (IncreaseRate), "Glyph of Eldritch Expansion" (IncreaseEffectScale).
-            - Debug menu updated for socketing glyphs to both Active Skills and Automatic Weapons.
-            Next:
-                - Develop a basic player-facing UI for viewing collected glyphs and socketing them into Active Skills and the equipped Automatic Weapon. [NEW PRIORITY]
-                - Implement acquisition of Glyphs via level-up choices (currently only grantable by debug).
-                - Potentially add more diverse glyph effects.
+- Consider adding 1 more skill with a distinct mechanic if desired (e.g., a channeled beam).
+- Refine existing skills for balance and impact.
 
         Deeper Item System & Synergies:
             Status: ONGOING
-            - Expanded "Relic" type items; currently ~12 defined (including aura/orbiter activators and "Crystalline Conduit").
+            - Expanded "Relic" type items;
+currently ~12 defined (including aura/orbiter activators and "Crystalline Conduit").
             Next:
                 - Add 2-4 more Relics with diverse conditional effects or stat combinations to reach the 15-20+ target.
-                - Continue to ensure items can synergize with both Automatic Abilities and Active Skills.
+- Continue to ensure items can synergize with both Automatic Abilities and Active Skills.
 
         Enhanced Enemy Behaviors & Elites:
             Status: PENDING
             - Refine AI for existing distinct enemy archetypes.
-            - Expand elite enemy modifiers for more variety.
-            Next: Add 1-2 new elite modifiers or a new common enemy variation.
+- Expand elite enemy modifiers for more variety.
+            Next:
+                - Add 2-3 new common enemy types with unique mechanics/behaviors.
+                - Add 1-2 new elite modifiers.
 
 Phase 3: Content Richness, Polish, and Long-Term Engagement
 
     Goal: Make the game feel complete with abundant content, better feedback, and high replayability.
-    Key Features: (Details unchanged from original roadmap for now)
+Key Features:
+        Dedicated Boss Encounters: Design and implement 2-3 unique boss encounters with distinct phases and attack patterns.
+        Extensive Content Expansion:
+            - Increase the pool of available Active Skills to 10-12.
+            - Increase the pool of Automatic Weapons/Abilities to 8-10.
+            - Significantly expand the "Relic" item pool to 30-40+.
+            - Add more enemy variations and potentially another distinct common enemy type.
+            - Expand the pool of available `UpgradeCard`s with new and diverse effects, including more multi-stat upgrades or unique behavioral changes.
+        Advanced UI/UX & Visual/Audio Polish:
+            - Implement polished player-facing UI for inventory, skill selection, and potentially glyphs (if pursued).
+            - Improve visual effects for abilities, impacts, and environmental details.
+            - Add more sound effects and thematic background music tracks.
 	add jukebox hero as title screen music for evan.
-        Dedicated Boss Encounters
-        Extensive Content Expansion
-        Advanced UI/UX & Visual/Audio Polish
-        Meta-Progression (Optional, for Replayability)
-        Lore & Atmosphere
+        Meta-Progression (Optional, for Replayability):
+            - Consider unlockable characters, starting items, or persistent upgrades between runs.
+        Lore & Atmosphere:
+            - Introduce flavor text for items, skills, enemies.
+            - Enhance environmental storytelling.
         "Cursed" Items/Trade-offs (Optional - Post-Core Game)
+
+Phase 4: Optional / Deferred Features
+
+    Glyph System Development:
+        Status: DEFERRED / OPTIONAL
+        - Decision made: Glyphs can modify both Active Skills and Automatic Abilities.
+        - `ActiveSkillInstance` supports glyphs.
+        - `AutomaticWeaponDefinition` includes `base_glyph_slots`, and `Survivor` struct tracks `auto_weapon_equipped_glyphs`.
+        - Implemented generic glyphs: "Glyph of Focused Intensity" (IncreaseBaseDamage), "Glyph of Swift Execution" (IncreaseRate), "Glyph of Eldritch Expansion" (IncreaseEffectScale).
+        - Debug menu updated for socketing glyphs to both Active Skills and Automatic Weapons.
+        Next (If pursued):
+            - Fully stabilize and debug any issues related to glyph interaction.
+            - Develop a basic player-facing UI for viewing collected glyphs and socketing them into Active Skills and the equipped Automatic Weapon.
+            - Implement acquisition of Glyphs via level-up choices or other in-game means.
+            - Potentially add more diverse glyph effects.

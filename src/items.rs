@@ -1,15 +1,18 @@
 // src/items.rs
 use bevy::prelude::*;
 use crate::{
-    survivor::Survivor, 
+    survivor::Survivor,
     components::{Health as ComponentHealth, Health},
     game::{AppState, ItemCollectedEvent},
-    horror::Horror, 
+    horror::Horror,
     visual_effects::spawn_damage_text,
     audio::{PlaySoundEvent, SoundEffect},
-    skills::{SkillId, SkillLibrary, ActiveSkillInstance}, 
-    weapons::{CircleOfWarding, SwarmOfNightmares}, 
-    // glyphs::GlyphId, // Removed unused import
+    skills::{SkillId, SkillLibrary, ActiveSkillInstance},
+    weapons::{CircleOfWarding, SwarmOfNightmares},
+    // glyphs::GlyphId, // Commented out if no longer used by Survivor,
+                       // but survivor.rs still has commented out collected_glyphs.
+                       // For now, let's assume it might be re-enabled or used elsewhere indirectly.
+                       // If it causes an unused import warning later, we'll remove it.
 };
 
 // --- Standard Items (Relics) ---
@@ -21,13 +24,13 @@ pub enum SurvivorTemporaryBuff { HealthRegen { rate: f32, duration_secs: f32 }, 
 
 #[derive(Debug, Clone, PartialEq, Reflect)]
 pub enum ItemEffect {
-    PassiveStatBoost { 
-        max_health_increase: Option<i32>, 
-        speed_multiplier: Option<f32>, 
-        damage_increase: Option<i32>, 
-        xp_gain_multiplier: Option<f32>, 
+    PassiveStatBoost {
+        max_health_increase: Option<i32>,
+        speed_multiplier: Option<f32>,
+        damage_increase: Option<i32>,
+        xp_gain_multiplier: Option<f32>,
         pickup_radius_increase: Option<f32>,
-        auto_weapon_projectile_speed_multiplier_increase: Option<f32>, 
+        auto_weapon_projectile_speed_multiplier_increase: Option<f32>,
     },
     OnAutomaticProjectileHitExplode { chance: f32, explosion_damage: i32, explosion_radius: f32, explosion_color: Color, },
     OnSurvivorHitRetaliate { chance: f32, retaliation_damage: i32, retaliation_radius: f32, retaliation_color: Color, },
@@ -63,16 +66,16 @@ pub struct AutomaticWeaponDefinition {
     pub id: AutomaticWeaponId,
     pub name: String,
     pub base_damage: i32,
-    pub base_fire_rate_secs: f32, 
+    pub base_fire_rate_secs: f32,
     pub base_projectile_speed: f32,
     pub base_piercing: u32,
-    pub additional_projectiles: u32, 
-    
-    pub projectile_sprite_path: &'static str, 
+    pub additional_projectiles: u32,
+
+    pub projectile_sprite_path: &'static str,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
-    pub base_glyph_slots: u8, 
+    // pub base_glyph_slots: u8, // Commented out
 }
 
 #[derive(Resource, Default, Reflect)]
@@ -91,60 +94,60 @@ impl AutomaticWeaponLibrary {
 pub struct ItemsPlugin;
 impl Plugin for ItemsPlugin {
     fn build(&self, app: &mut App) {
-        app .register_type::<ItemId>() .register_type::<SurvivorTemporaryBuff>() .register_type::<ItemEffect>() .register_type::<ItemLibrary>() 
-            .register_type::<ExplosionEffect>() .register_type::<RetaliationNovaEffect>() .register_type::<TemporaryHealthRegenBuff>() 
+        app .register_type::<ItemId>() .register_type::<SurvivorTemporaryBuff>() .register_type::<ItemEffect>() .register_type::<ItemLibrary>()
+            .register_type::<ExplosionEffect>() .register_type::<RetaliationNovaEffect>() .register_type::<TemporaryHealthRegenBuff>()
             .register_type::<AutomaticWeaponId>() .register_type::<AutomaticWeaponDefinition>() .register_type::<AutomaticWeaponLibrary>()
             .init_resource::<ItemLibrary>()
-            .init_resource::<AutomaticWeaponLibrary>() 
-            .add_systems(Startup, (populate_item_library, populate_automatic_weapon_library) ) 
+            .init_resource::<AutomaticWeaponLibrary>()
+            .add_systems(Startup, (populate_item_library, populate_automatic_weapon_library) )
             .add_systems(Update, ( apply_collected_item_effects_system.run_if(on_event::<ItemCollectedEvent>()), explosion_effect_system.run_if(in_state(AppState::InGame)), retaliation_nova_effect_system.run_if(in_state(AppState::InGame)), temporary_health_regen_buff_system.run_if(in_state(AppState::InGame)), ));
     }
 }
 
 fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>) {
     library.weapons.push(AutomaticWeaponDefinition {
-        id: AutomaticWeaponId(0), 
+        id: AutomaticWeaponId(0),
         name: "Primordial Ichor Blast".to_string(),
-        base_damage: 10, 
-        base_fire_rate_secs: 0.5, 
-        base_projectile_speed: 600.0, 
+        base_damage: 10,
+        base_fire_rate_secs: 0.5,
+        base_projectile_speed: 600.0,
         base_piercing: 0,
         additional_projectiles: 0,
-        projectile_sprite_path: "sprites/ichor_blast_placeholder.png", 
-        projectile_size: Vec2::new(10.0, 10.0), 
+        projectile_sprite_path: "sprites/ichor_blast_placeholder.png",
+        projectile_size: Vec2::new(10.0, 10.0),
         projectile_color: Color::rgb(0.7, 0.5, 1.0),
-        projectile_lifetime_secs: 2.0, 
-        base_glyph_slots: 2, 
+        projectile_lifetime_secs: 2.0,
+        // base_glyph_slots: 2, // Commented out
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
-        id: AutomaticWeaponId(1), 
+        id: AutomaticWeaponId(1),
         name: "Eldritch Gatling".to_string(),
-        base_damage: 5, 
-        base_fire_rate_secs: 0.15, 
-        base_projectile_speed: 550.0, 
+        base_damage: 5,
+        base_fire_rate_secs: 0.15,
+        base_projectile_speed: 550.0,
         base_piercing: 0,
         additional_projectiles: 0,
-        projectile_sprite_path: "sprites/eldritch_gatling_projectile_placeholder.png", 
+        projectile_sprite_path: "sprites/eldritch_gatling_projectile_placeholder.png",
         projectile_size: Vec2::new(8.0, 16.0),
         projectile_color: Color::rgb(0.3, 0.9, 0.4),
-        projectile_lifetime_secs: 1.5, 
-        base_glyph_slots: 3, 
+        projectile_lifetime_secs: 1.5,
+        // base_glyph_slots: 3, // Commented out
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
-        id: AutomaticWeaponId(2), 
+        id: AutomaticWeaponId(2),
         name: "Void Cannon".to_string(),
-        base_damage: 30, 
-        base_fire_rate_secs: 1.25, 
-        base_projectile_speed: 450.0, 
-        base_piercing: 1, 
+        base_damage: 30,
+        base_fire_rate_secs: 1.25,
+        base_projectile_speed: 450.0,
+        base_piercing: 1,
         additional_projectiles: 0,
-        projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png", 
+        projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png",
         projectile_size: Vec2::new(18.0, 18.0),
         projectile_color: Color::rgb(0.4, 0.1, 0.7),
-        projectile_lifetime_secs: 2.5, 
-        base_glyph_slots: 1, 
+        projectile_lifetime_secs: 2.5,
+        // base_glyph_slots: 1, // Commented out
     });
 }
 
@@ -163,78 +166,83 @@ fn populate_item_library(mut library: ResMut<ItemLibrary>) {
     library.items.push(ItemDefinition { id: ItemId(12), name: "Crystalline Conduit".to_string(), description: "Increases automatic weapon damage by +3 and projectile speed by +10%.".to_string(), effects: vec![ItemEffect::PassiveStatBoost { max_health_increase: None, speed_multiplier: None, damage_increase: Some(3), xp_gain_multiplier: None, pickup_radius_increase: None, auto_weapon_projectile_speed_multiplier_increase: Some(0.10) }], });
 }
 
-fn apply_collected_item_effects_system( 
-    mut events: EventReader<ItemCollectedEvent>, 
+fn apply_collected_item_effects_system(
+    mut events: EventReader<ItemCollectedEvent>,
     mut player_query: Query<(&mut Survivor, Option<&mut ComponentHealth>, Option<&mut CircleOfWarding>, Option<&mut SwarmOfNightmares>)>,
-    item_library: Res<ItemLibrary>, 
+    item_library: Res<ItemLibrary>,
     skill_library: Res<SkillLibrary>,
-) { 
+) {
     if let Ok((mut player, mut opt_health_component, mut opt_circle_aura, mut opt_nightmare_swarm)) = player_query.get_single_mut() {
         for event in events.read() {
-            let item_id = event.0; 
+            let item_id = event.0;
             let is_new_item = !player.collected_item_ids.contains(&item_id);
             if is_new_item {
-                player.collected_item_ids.push(item_id);
+                // player.collected_item_ids.push(item_id); // This will be pushed after processing effects for safety
             }
 
             if let Some(item_def) = item_library.get_item_definition(item_id) {
+                let mut applied_successfully = true; // Flag to check if this item should be marked as collected
                 for effect in &item_def.effects {
                     match effect {
-                        ItemEffect::PassiveStatBoost { 
-                            max_health_increase, 
-                            speed_multiplier, 
-                            damage_increase, 
-                            xp_gain_multiplier, 
-                            pickup_radius_increase, 
-                            auto_weapon_projectile_speed_multiplier_increase 
+                        ItemEffect::PassiveStatBoost {
+                            max_health_increase,
+                            speed_multiplier,
+                            damage_increase,
+                            xp_gain_multiplier,
+                            pickup_radius_increase,
+                            auto_weapon_projectile_speed_multiplier_increase
                         } => {
-                            if is_new_item { 
+                            if is_new_item {
                                 if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { health_comp.0 += *hp_boost; health_comp.0 = health_comp.0.min(player.max_health); } }
                                 if let Some(speed_mult) = speed_multiplier { player.speed *= *speed_mult; }
-                                if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; } 
+                                if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; }
                                 if let Some(xp_mult) = xp_gain_multiplier { player.xp_gain_multiplier *= *xp_mult; }
                                 if let Some(radius_inc_percent) = pickup_radius_increase { player.pickup_radius_multiplier *= 1.0 + radius_inc_percent; }
                                 if let Some(projectile_speed_inc) = auto_weapon_projectile_speed_multiplier_increase { player.auto_weapon_projectile_speed_multiplier *= 1.0 + projectile_speed_inc; }
                             }
                         }
                         ItemEffect::GrantSpecificSkill { skill_id } => {
-                            if is_new_item { 
-                                if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) { 
+                            if is_new_item {
+                                if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
                                     let already_has_skill = player.equipped_skills.iter().any(|s| s.definition_id == *skill_id);
-                                    if !already_has_skill { if player.equipped_skills.len() < 4 { 
-                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id, skill_to_grant_def.base_glyph_slots)); 
-                                    } }
-                                }
+                                    if !already_has_skill { if player.equipped_skills.len() < 5 { // Assuming max 5 skills
+                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id /*, skill_to_grant_def.base_glyph_slots // Commented out */));
+                                    } else { applied_successfully = false; /* Potentially log or notify player skill slots full */ }
+                                    } else { applied_successfully = false; /* Already has skill */ }
+                                } else { applied_successfully = false; /* Skill def not found */ }
                             }
                         }
                         ItemEffect::ActivateCircleOfWarding { base_damage, base_radius, base_tick_interval } => {
                             if let Some(ref mut circle_aura) = opt_circle_aura {
-                                if !circle_aura.is_active { 
+                                if !circle_aura.is_active {
                                     circle_aura.is_active = true;
                                     circle_aura.base_damage_per_tick = *base_damage;
                                     circle_aura.current_radius = *base_radius;
                                     circle_aura.damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
-                                } else {
-                                    circle_aura.base_damage_per_tick += 1; 
+                                } else { // If already active, collecting another of the same item could upgrade it
+                                    circle_aura.base_damage_per_tick += 1; // Example upgrade
                                 }
-                            }
+                            } else { applied_successfully = false; /* Player doesn't have the component */ }
                         }
                         ItemEffect::ActivateSwarmOfNightmares { num_larvae, base_damage, base_orbit_radius, base_rotation_speed } => {
                             if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm {
-                                if !nightmare_swarm.is_active { 
+                                if !nightmare_swarm.is_active {
                                     nightmare_swarm.is_active = true;
                                     nightmare_swarm.num_larvae = *num_larvae;
                                     nightmare_swarm.damage_per_hit = *base_damage;
                                     nightmare_swarm.orbit_radius = *base_orbit_radius;
                                     nightmare_swarm.rotation_speed = *base_rotation_speed;
-                                } else {
-                                    nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(5); 
+                                } else { // Example upgrade
+                                    nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(5);
                                     nightmare_swarm.damage_per_hit += 1;
                                 }
-                            }
+                            } else { applied_successfully = false; /* Player doesn't have the component */ }
                         }
-                        _ => {} 
+                        _ => {}
                     }
+                }
+                if is_new_item && applied_successfully {
+                    player.collected_item_ids.push(item_id);
                 }
             }
         }

@@ -9,8 +9,8 @@ pub enum GlyphEffectType {
     ProjectileChain { bounces: u32, },
     IncreasedAoEDamage { percent_increase: f32, },
     AddedChaosDamageToProjectile { damage_amount: i32, },
-    IncreaseBaseDamage { amount: i32 }, 
-    IncreaseRate { percent_boost: f32 }, 
+    IncreaseBaseDamage { amount: i32 },
+    IncreaseRate { percent_boost: f32 },
     IncreaseEffectScale { percent_boost: f32 }, // New effect for range/AoE size
 }
 
@@ -34,19 +34,19 @@ impl GlyphLibrary {
     }
 }
 
-pub struct GlyphsPlugin;
+// pub struct GlyphsPlugin; // Commented out
 
-impl Plugin for GlyphsPlugin {
-    fn build(&self, app: &mut App) {
-        app
-            .register_type::<GlyphId>()
-            .register_type::<GlyphEffectType>()
-            .register_type::<GlyphDefinition>()
-            .register_type::<GlyphLibrary>()
-            .init_resource::<GlyphLibrary>()
-            .add_systems(Startup, populate_glyph_library);
-    }
-}
+// impl Plugin for GlyphsPlugin { // Commented out
+//     fn build(&self, app: &mut App) {
+//         app
+//             .register_type::<GlyphId>()
+//             .register_type::<GlyphEffectType>()
+//             .register_type::<GlyphDefinition>()
+//             .register_type::<GlyphLibrary>()
+//             .init_resource::<GlyphLibrary>()
+//             .add_systems(Startup, populate_glyph_library);
+//     }
+// }
 
 fn populate_glyph_library(mut library: ResMut<GlyphLibrary>) {
     library.glyphs.push(GlyphDefinition {
@@ -73,7 +73,7 @@ fn populate_glyph_library(mut library: ResMut<GlyphLibrary>) {
         description: "Increases the direct damage of the modified ability or weapon by +5.".to_string(),
         effect: GlyphEffectType::IncreaseBaseDamage { amount: 5 },
     });
-    library.glyphs.push(GlyphDefinition { 
+    library.glyphs.push(GlyphDefinition {
         id: GlyphId(5),
         name: "Glyph of Swift Execution".to_string(),
         description: "Increases attack/casting speed by 10% (reduces cooldowns/fire intervals).".to_string(),

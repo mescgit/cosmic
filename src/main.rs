@@ -1,12 +1,12 @@
 // src/main.rs
 use bevy::prelude::*;
 
-mod survivor; 
+mod survivor;
 mod components;
-mod horror; 
+mod horror;
 mod automatic_projectiles; // Changed from ichor_blast
 mod game;
-mod echoing_soul; 
+mod echoing_soul;
 mod upgrades;
 mod level_event_effects;
 mod weapons;
@@ -17,11 +17,11 @@ mod background;
 mod debug_menu;
 mod skills;
 mod items;
-mod glyphs;
+// mod glyphs; // Commented out
 
-use survivor::SurvivorPlugin; 
-use horror::HorrorPlugin; 
-use automatic_projectiles::AutomaticProjectilesPlugin; // Changed from IchorBlastPlugin
+use survivor::SurvivorPlugin;
+use horror::HorrorPlugin;
+use automatic_projectiles::AutomaticProjectilesPlugin; // Changed
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
 use level_event_effects::LevelEventEffectsPlugin;
 use weapons::WeaponsPlugin;
@@ -31,7 +31,7 @@ use camera_systems::{CameraSystemsPlugin, MainCamera};
 use background::BackgroundPlugin;
 use skills::SkillsPlugin;
 use items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponDefinition, AutomaticWeaponId};
-use glyphs::GlyphsPlugin;
+// use glyphs::GlyphsPlugin; // Commented out
 
 
 fn main() {
@@ -45,23 +45,23 @@ fn main() {
             }),
             ..default()
         }))
-        .register_type::<AutomaticWeaponId>()      
-        .register_type::<AutomaticWeaponDefinition>() 
+        .register_type::<AutomaticWeaponId>()
+        .register_type::<AutomaticWeaponDefinition>()
         .register_type::<AutomaticWeaponLibrary>()
         .add_plugins((
-            GamePlugin, 
-            SurvivorPlugin, 
-            HorrorPlugin, 
+            GamePlugin,
+            SurvivorPlugin,
+            HorrorPlugin,
             AutomaticProjectilesPlugin, // Changed
-            LevelEventEffectsPlugin, 
-            WeaponsPlugin, 
+            LevelEventEffectsPlugin,
+            WeaponsPlugin,
             VisualEffectsPlugin,
-            GameAudioPlugin, 
-            CameraSystemsPlugin, 
+            GameAudioPlugin,
+            CameraSystemsPlugin,
             BackgroundPlugin,
-            SkillsPlugin, 
-            ItemsPlugin, 
-            GlyphsPlugin,
+            SkillsPlugin,
+            ItemsPlugin,
+            // GlyphsPlugin, // Commented out
         ))
         .add_systems(Startup, setup_global_camera)
         .run();
@@ -69,6 +69,6 @@ fn main() {
 
 fn setup_global_camera(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.transform.translation.z = 999.0; 
+    camera_bundle.transform.translation.z = 999.0;
     commands.spawn((camera_bundle, MainCamera));
 }
