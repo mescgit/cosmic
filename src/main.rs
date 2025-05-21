@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
-mod survivor; // Changed
+mod survivor; 
 mod components;
-mod horror; // Changed
-mod ichor_blast; // Changed
+mod horror; 
+mod ichor_blast; 
 mod game;
-mod echoing_soul; // Changed
+mod echoing_soul; 
 mod upgrades;
 mod level_event_effects;
 mod weapons;
@@ -18,20 +18,20 @@ mod skills;
 mod items;
 mod glyphs;
 
-use survivor::SurvivorPlugin; // Changed
-use horror::HorrorPlugin; // Changed
-use ichor_blast::IchorBlastPlugin; // Changed
+use survivor::SurvivorPlugin; 
+use horror::HorrorPlugin; 
+use ichor_blast::IchorBlastPlugin; 
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
 use level_event_effects::LevelEventEffectsPlugin;
-use weapons::WeaponsPlugin;
+use weapons::WeaponsPlugin; 
 use visual_effects::VisualEffectsPlugin;
 use audio::GameAudioPlugin;
-use camera_systems::{CameraSystemsPlugin, MainCamera};
+use camera_systems::CameraSystemsPlugin; 
 use background::BackgroundPlugin;
 use skills::SkillsPlugin;
-use items::ItemsPlugin;
+use items::ItemsPlugin; 
 use glyphs::GlyphsPlugin;
-// Remove 'use experience::ExperiencePlugin' if it exists, as it's handled by GamePlugin
+
 
 fn main() {
     App::new()
@@ -45,7 +45,7 @@ fn main() {
             ..default()
         }))
         .add_plugins((
-            GamePlugin, // GamePlugin adds EchoingSoulPlugin (formerly ExperiencePlugin)
+            GamePlugin, 
             SurvivorPlugin, 
             HorrorPlugin, 
             IchorBlastPlugin,
@@ -59,12 +59,13 @@ fn main() {
             ItemsPlugin, 
             GlyphsPlugin,
         ))
+        .register_type::<weapons::DoomPulseAura>() 
         .add_systems(Startup, setup_global_camera)
         .run();
 }
 
 fn setup_global_camera(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.transform.translation.z = 999.0; // Ensure camera is on top
-    commands.spawn((camera_bundle, MainCamera));
+    camera_bundle.transform.translation.z = 999.0; 
+    commands.spawn((camera_bundle, crate::camera_systems::MainCamera)); 
 }

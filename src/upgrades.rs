@@ -1,16 +1,17 @@
 use bevy::prelude::*;
 use rand::seq::SliceRandom;
-use crate::skills::SkillId;
+use crate::{skills::SkillId, items::WeaponId}; 
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UpgradeType {
     SurvivorSpeed(u32), MaxEndurance(i32), IchorBlastIntensity(i32), IchorBlastSpeed(u32), IchorBlastVelocity(u32), IchorBlastPiercing(u32),
-    EchoesGainMultiplier(u32), SoulAttractionRadius(u32), AdditionalIchorBlasts(u32), InscribeCircleOfWarding,
+    EchoesGainMultiplier(u32), SoulAttractionRadius(u32), AdditionalIchorBlasts(u32), 
     IncreaseCircleRadius(u32), IncreaseCircleDamage(i32), DecreaseCircleTickRate(u32), EnduranceRegeneration(f32),
-    ManifestSwarmOfNightmares, IncreaseNightmareCount(u32), IncreaseNightmareDamage(i32), IncreaseNightmareRadius(f32), IncreaseNightmareRotationSpeed(f32),
+    IncreaseNightmareCount(u32), IncreaseNightmareDamage(i32), IncreaseNightmareRadius(f32), IncreaseNightmareRotationSpeed(f32),
     IncreaseSkillDamage { slot_index: usize, amount: i32 }, GrantRandomRelic, GrantSkill(SkillId),
     ReduceSkillCooldown { slot_index: usize, percent_reduction: f32 }, IncreaseSkillAoERadius { slot_index: usize, percent_increase: f32 },
-    GrantRandomGlyph, // New UpgradeType
+    GrantRandomGlyph, 
+    GrantSpecificWeapon { weapon_id: WeaponId }, 
 }
 
 #[derive(Debug, Clone)]
@@ -32,30 +33,28 @@ impl UpgradePool {
             UpgradeCard {id: UpgradeId(300), name: "Unnatural Vigor".to_string(), description: "Reality warps to mend your wounds. Regenerate 0.5 Endurance/sec.".to_string(), upgrade_type: UpgradeType::EnduranceRegeneration(0.5),},
             UpgradeCard {id: UpgradeId(301), name: "Bound by Ichor".to_string(), description: "Strange energies sustain your form. Regenerate 1.0 Endurance/sec.".to_string(), upgrade_type: UpgradeType::EnduranceRegeneration(1.0),},
 
-            // Ichor Blast (Main Attack)
-            UpgradeCard {id: UpgradeId(2), name: "Maddening Focus".to_string(), description: "Your ichor blasts strike with greater force. +5 Ichor Blast damage.".to_string(), upgrade_type: UpgradeType::IchorBlastIntensity(5),},
-            UpgradeCard {id: UpgradeId(3), name: "Rapid Sanity Strain".to_string(), description: "Your mind strains faster, casting ichor blasts more quickly. +15% cast speed.".to_string(), upgrade_type: UpgradeType::IchorBlastSpeed(15),},
-            UpgradeCard {id: UpgradeId(4), name: "Swift Ichor".to_string(), description: "Your Ichor Blasts travel faster. +20% velocity.".to_string(), upgrade_type: UpgradeType::IchorBlastVelocity(20),},
-            UpgradeCard {id: UpgradeId(7), name: "Piercing Ichor".to_string(), description: "Your ichor blasts carry deeper malevolence. +8 Ichor Blast damage.".to_string(), upgrade_type: UpgradeType::IchorBlastIntensity(8),},
-            UpgradeCard {id: UpgradeId(8), name: "Hyper Sanity Strain".to_string(), description: "Your mind strains with startling alacrity, casting ichor blasts faster. +20% cast speed.".to_string(), upgrade_type: UpgradeType::IchorBlastSpeed(20),},
-            UpgradeCard {id: UpgradeId(9), name: "Unraveling Ichor".to_string(), description: "Your Ichor Blasts tear through more horrors. Pierce +1 horror.".to_string(), upgrade_type: UpgradeType::IchorBlastPiercing(1),},
-            UpgradeCard {id: UpgradeId(12), name: "Persistent Ichor".to_string(), description: "Your Ichor Blasts linger longer in reality. Pierce +2 horrors.".to_string(), upgrade_type: UpgradeType::IchorBlastPiercing(2),},
-            UpgradeCard {id: UpgradeId(200), name: "Fractured Sanity".to_string(), description: "Your mind splinters, projecting an additional ichor blast. +1 Ichor Blast.".to_string(), upgrade_type: UpgradeType::AdditionalIchorBlasts(1),},
-            UpgradeCard {id: UpgradeId(201), name: "Ichor Barrage".to_string(), description: "Your consciousness erupts, projecting two additional ichor blasts. +2 Ichor Blasts.".to_string(), upgrade_type: UpgradeType::AdditionalIchorBlasts(2),},
+            // Automatic Weapon Upgrades
+            UpgradeCard {id: UpgradeId(2), name: "Maddening Focus".to_string(), description: "Your automatic attacks strike with greater force. +5 Damage.".to_string(), upgrade_type: UpgradeType::IchorBlastIntensity(5),},
+            UpgradeCard {id: UpgradeId(3), name: "Rapid Sanity Strain".to_string(), description: "Your mind strains faster, firing automatic attacks more quickly. +15% attack speed.".to_string(), upgrade_type: UpgradeType::IchorBlastSpeed(15),},
+            UpgradeCard {id: UpgradeId(4), name: "Swift Projectiles".to_string(), description: "Your automatic projectiles travel faster. +20% velocity.".to_string(), upgrade_type: UpgradeType::IchorBlastVelocity(20),},
+            UpgradeCard {id: UpgradeId(7), name: "Piercing Thoughts".to_string(), description: "Your automatic attacks carry deeper malevolence. +8 Damage.".to_string(), upgrade_type: UpgradeType::IchorBlastIntensity(8),},
+            UpgradeCard {id: UpgradeId(8), name: "Hyper Sanity Strain".to_string(), description: "Your mind strains with startling alacrity, firing automatic attacks faster. +20% attack speed.".to_string(), upgrade_type: UpgradeType::IchorBlastSpeed(20),},
+            UpgradeCard {id: UpgradeId(9), name: "Unraveling Thoughts".to_string(), description: "Your automatic projectiles tear through more horrors. Pierce +1 horror.".to_string(), upgrade_type: UpgradeType::IchorBlastPiercing(1),},
+            UpgradeCard {id: UpgradeId(12), name: "Persistent Thoughts".to_string(), description: "Your automatic projectiles linger longer in reality. Pierce +2 horrors.".to_string(), upgrade_type: UpgradeType::IchorBlastPiercing(2),},
+            UpgradeCard {id: UpgradeId(200), name: "Fractured Consciousness".to_string(), description: "Your mind splinters, projecting an additional automatic projectile. +1 Projectile.".to_string(), upgrade_type: UpgradeType::AdditionalIchorBlasts(1),},
+            UpgradeCard {id: UpgradeId(201), name: "Projectile Barrage".to_string(), description: "Your consciousness erupts, projecting two additional automatic projectiles. +2 Projectiles.".to_string(), upgrade_type: UpgradeType::AdditionalIchorBlasts(2),},
 
             // Echoes (XP) & Pickups
             UpgradeCard {id: UpgradeId(10), name: "Glimpse Beyond The Veil".to_string(), description: "Glimpses of the abyss accelerate your horrific understanding. +20% Echoes gain.".to_string(), upgrade_type: UpgradeType::EchoesGainMultiplier(20),},
             UpgradeCard {id: UpgradeId(11), name: "Soul Grasp".to_string(), description: "The echoes of fallen horrors are drawn to you. +25% Echoing Soul attraction radius.".to_string(), upgrade_type: UpgradeType::SoulAttractionRadius(25),},
             UpgradeCard {id: UpgradeId(13), name: "Abyssal Understanding".to_string(), description: "You perceive deeper truths, hastening your evolution. +30% Echoes gain.".to_string(), upgrade_type: UpgradeType::EchoesGainMultiplier(30),},
             
-            // Circle of Warding (Aura Weapon)
-            UpgradeCard {id: UpgradeId(100), name: "Inscribe Circle of Warding".to_string(), description: "Manifest an aura of protective, damaging glyphs.".to_string(), upgrade_type: UpgradeType::InscribeCircleOfWarding,},
+            // Circle of Warding Upgrades (Item-granted)
             UpgradeCard {id: UpgradeId(101), name: "Echoing Wards".to_string(), description: "Your protective circle extends further. +20% circle radius.".to_string(), upgrade_type: UpgradeType::IncreaseCircleRadius(20),},
             UpgradeCard {id: UpgradeId(102), name: "Maddening Wards".to_string(), description: "Your circle inflicts greater mental anguish. +2 circle damage.".to_string(), upgrade_type: UpgradeType::IncreaseCircleDamage(2),},
             UpgradeCard {id: UpgradeId(103), name: "Frenzied Wards".to_string(), description: "Your circle pulses with greater frequency. Circle damages 15% faster.".to_string(), upgrade_type: UpgradeType::DecreaseCircleTickRate(15),},
 
-            // Swarm of Nightmares (Orbiter Weapon)
-            UpgradeCard {id: UpgradeId(400), name: "Manifest Swarm of Nightmares".to_string(), description: "Conjure 2 nightmare larva that orbit and attack foes.".to_string(), upgrade_type: UpgradeType::ManifestSwarmOfNightmares,},
+            // Swarm of Nightmares Upgrades (Item-granted)
             UpgradeCard {id: UpgradeId(401), name: "Grow the Nightmare Swarm".to_string(), description: "Add another Nightmare Larva to your psychic defenses. +1 nightmare.".to_string(), upgrade_type: UpgradeType::IncreaseNightmareCount(1),},
             UpgradeCard {id: UpgradeId(402), name: "Venomous Nightmares".to_string(), description: "Your Nightmare Larva inflict deeper wounds. +3 nightmare damage.".to_string(), upgrade_type: UpgradeType::IncreaseNightmareDamage(3),},
             UpgradeCard {id: UpgradeId(403), name: "Extended Nightmare Patrol".to_string(), description: "Your Nightmare Larva patrol a wider area. +15 orbit radius.".to_string(), upgrade_type: UpgradeType::IncreaseNightmareRadius(15.0),},
@@ -66,9 +65,15 @@ impl UpgradePool {
             UpgradeCard {id: UpgradeId(501), name: "Intensify Mind Shatter".to_string(), description: "Mind Shatter fragments each deal +3 damage.".to_string(), upgrade_type: UpgradeType::IncreaseSkillDamage { slot_index: 1, amount: 3 },},
             UpgradeCard {id: UpgradeId(502), name: "Sharpen Void Lance".to_string(), description: "Increase Void Lance damage by 20.".to_string(), upgrade_type: UpgradeType::IncreaseSkillDamage { slot_index: 2, amount: 20 },},
             
-            // General/Utility
+            // General/Utility & Weapon Grants
             UpgradeCard {id: UpgradeId(600), name: "Mysterious Relic".to_string(), description: "The abyss grants you a random relic.".to_string(), upgrade_type: UpgradeType::GrantRandomRelic,},
-            UpgradeCard {id: UpgradeId(601), name: "Whispers of Power (Glyph)".to_string(), description: "A faint whisper offers a fragment of forbidden knowledge (Glyph).".to_string(), upgrade_type: UpgradeType::GrantRandomGlyph,}, // New Upgrade Card
+            UpgradeCard {id: UpgradeId(601), name: "Whispers of Power (Glyph)".to_string(), description: "A faint whisper offers a fragment of forbidden knowledge (Glyph).".to_string(), upgrade_type: UpgradeType::GrantRandomGlyph,},
+            UpgradeCard {id: UpgradeId(602), name: "Armament of the Void".to_string(), description: "Discover a new automatic weapon: Void Ripper.".to_string(), upgrade_type: UpgradeType::GrantSpecificWeapon{ weapon_id: WeaponId(2)},},
+            UpgradeCard {id: UpgradeId(603), name: "Kinetic Resonator".to_string(), description: "Equip the Kinetic Pulse Driver.".to_string(), upgrade_type: UpgradeType::GrantSpecificWeapon{ weapon_id: WeaponId(3)},},
+            UpgradeCard {id: UpgradeId(604), name: "Unleash Chaos: Scattergun".to_string(), description: "Equip the Eldritch Scattergun, firing a spray of projectiles.".to_string(), upgrade_type: UpgradeType::GrantSpecificWeapon{ weapon_id: WeaponId(4)},},
+            UpgradeCard {id: UpgradeId(605), name: "Piercing Cold: Cryo Javelin".to_string(), description: "Hurl a javelin of pure frost as your automatic attack.".to_string(), upgrade_type: UpgradeType::GrantSpecificWeapon{ weapon_id: WeaponId(5)},},
+            UpgradeCard {id: UpgradeId(606), name: "Whispering Band of Doom".to_string(), description: "A ring that emits faint, damaging pulses of despair.".to_string(), upgrade_type: UpgradeType::GrantRandomRelic,}, 
+
 
             // Grant Skills
             UpgradeCard {id: UpgradeId(700), name: "Learn: Mind Shatter".to_string(), description: "Unlock the Mind Shatter psychic burst skill.".to_string(), upgrade_type: UpgradeType::GrantSkill(SkillId(2)),},
@@ -82,7 +87,7 @@ impl UpgradePool {
             UpgradeCard {id: UpgradeId(801), name: "Focused Mind Shatter".to_string(), description: "Mind Shatter recharges 15% faster.".to_string(), upgrade_type: UpgradeType::ReduceSkillCooldown { slot_index: 1, percent_reduction: 0.15 },},
             UpgradeCard {id: UpgradeId(802), name: "Accelerated Void".to_string(), description: "Void Lance recharges 10% faster.".to_string(), upgrade_type: UpgradeType::ReduceSkillCooldown { slot_index: 2, percent_reduction: 0.10 },},
             UpgradeCard {id: UpgradeId(803), name: "Heightened Reflexes".to_string(), description: "Fleeting Agility recharges 10% faster.".to_string(), upgrade_type: UpgradeType::ReduceSkillCooldown { slot_index: 3, percent_reduction: 0.10 },},
-            UpgradeCard {id: UpgradeId(804), name: "Cryo-Resonance".to_string(), description: "Glacial Nova recharges 10% faster.".to_string(), upgrade_type: UpgradeType::ReduceSkillCooldown { slot_index: 4, percent_reduction: 0.10 },},
+            UpgradeCard {id: UpgradeId(804), name: "Cryo-Resonance".to_string(), description: "Glacial Nova recharges 10% faster.".to_string(), upgrade_type: UpgradeType::ReduceSkillCooldown { slot_index: 4, percent_reduction: 0.10 },}, 
             UpgradeCard {id: UpgradeId(805), name: "Expanded Chill".to_string(), description: "Glacial Nova's area of effect expands by 15%.".to_string(), upgrade_type: UpgradeType::IncreaseSkillAoERadius { slot_index: 4, percent_increase: 0.15 },},
         ];
     }

@@ -9,11 +9,12 @@ use crate::{
     weapons::{CircleOfWarding, SwarmOfNightmares}, 
     audio::{PlaySoundEvent, SoundEffect},
     debug_menu::DebugMenuPlugin,
-    items::{ItemId, ItemLibrary},
+    items::{ItemId, ItemLibrary}, // WeaponId import removed
     skills::{ActiveSkillInstance, SkillLibrary as GameSkillLibrary}, 
-    ichor_blast::IchorBlast, 
+    ichor_blast::AutomaticProjectile, 
     glyphs::{GlyphLibrary, GlyphId}, 
 };
+
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
@@ -42,6 +43,8 @@ pub struct GamePlugin;
 pub struct GameState { pub score: u32, pub cycle_number: u32, pub horror_count: u32, pub _game_over_timer: Timer, pub game_timer: Timer, pub difficulty_timer: Timer, } 
 #[derive(Event)] pub struct UpgradeChosenEvent(pub UpgradeCard);
 #[derive(Event)] pub struct ItemCollectedEvent(pub ItemId);
+#[derive(Event)] pub struct AttemptSocketGlyphEvent { pub skill_idx: usize, pub slot_idx: usize, pub glyph_id: GlyphId }
+
 
 #[derive(Component)] struct MainMenuUI;
 #[derive(Component)] struct LevelUpUI;
@@ -78,6 +81,7 @@ fn log_exiting_debug_menu_state() {}
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app .add_event::<UpgradeChosenEvent>() .add_event::<ItemCollectedEvent>()
+            .add_event::<AttemptSocketGlyphEvent>() 
             .add_plugins((UpgradePlugin, DebugMenuPlugin)) .init_state::<AppState>()
             .init_resource::<GameConfig>() .init_resource::<GameState>()
             .init_resource::<SelectedInventoryGlyph>() 
@@ -92,6 +96,7 @@ impl Plugin for GamePlugin {
             .add_systems(OnEnter(AppState::LevelUp), (setup_level_up_ui, on_enter_pause_like_state_actions))
             .add_systems(Update, handle_upgrade_choice_interaction.run_if(in_state(AppState::LevelUp)))
             .add_systems(Update, apply_chosen_upgrade.run_if(on_event::<UpgradeChosenEvent>()))
+            .add_systems(Update, handle_attempt_socket_glyph_event.run_if(on_event::<AttemptSocketGlyphEvent>())) 
             .add_systems(OnExit(AppState::LevelUp), (despawn_ui_by_marker::<LevelUpUI>, on_enter_ingame_state_actions))
             .add_systems(OnEnter(AppState::DebugUpgradeMenu), (on_enter_pause_like_state_actions, log_entering_debug_menu_state))
             .add_systems(OnExit(AppState::DebugUpgradeMenu), (on_enter_ingame_state_actions, log_exiting_debug_menu_state))
@@ -99,7 +104,8 @@ impl Plugin for GamePlugin {
             .add_systems(Update, (
                 glyph_socketing_menu_input_system,
                 glyph_slot_button_interaction_system, 
-                inventory_glyph_button_interaction_system, 
+                detect_inventory_glyph_press_system, 
+                update_inventory_glyph_visuals_system.after(detect_inventory_glyph_press_system), 
             ).chain().run_if(in_state(AppState::GlyphSocketingMenu))) 
             .add_systems(OnExit(AppState::GlyphSocketingMenu), (despawn_ui_by_marker::<GlyphSocketingMenuUI>, on_enter_ingame_state_actions, clear_selected_glyph_on_exit)) 
             .add_systems(OnEnter(AppState::GameOver), setup_game_over_ui)
@@ -139,34 +145,32 @@ fn setup_level_up_ui(mut commands: Commands, asset_server: Res<AssetServer>, pla
 fn handle_upgrade_choice_interaction(mut interaction_query: Query< (&Interaction, &UpgradeButton, &mut BackgroundColor), (Changed<Interaction>, With<Button>), >, mut upgrade_chosen_event: EventWriter<UpgradeChosenEvent>, mut next_app_state: ResMut<NextState<AppState>>, keyboard_input: Res<ButtonInput<KeyCode>>, level_up_ui_query: Query<&OfferedUpgrades, With<LevelUpUI>>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (interaction, upgrade_button_data, mut bg_color) in interaction_query.iter_mut() { match *interaction { Interaction::Pressed => { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(upgrade_button_data.0.clone())); next_app_state.set(AppState::InGame); return; } Interaction::Hovered => { *bg_color = Color::DARK_GREEN.into(); } Interaction::None => { *bg_color = Color::GRAY.into(); } } } if let Ok(offered) = level_up_ui_query.get_single() { let choice_made = if keyboard_input.just_pressed(KeyCode::Digit1) && offered.choices.len() > 0 { Some(offered.choices[0].clone()) } else if keyboard_input.just_pressed(KeyCode::Digit2) && offered.choices.len() > 1 { Some(offered.choices[1].clone()) } else if keyboard_input.just_pressed(KeyCode::Digit3) && offered.choices.len() > 2 { Some(offered.choices[2].clone()) } else { None }; if let Some(chosen_card) = choice_made { sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); upgrade_chosen_event.send(UpgradeChosenEvent(chosen_card)); next_app_state.set(AppState::InGame); } } }
 fn apply_chosen_upgrade( 
     mut events: EventReader<UpgradeChosenEvent>, 
-    mut player_query: Query<(&mut Survivor, &mut crate::survivor::SanityStrain, &mut Health, &mut CircleOfWarding, &mut SwarmOfNightmares)>, 
+    mut player_query: Query<(&mut Survivor, &mut crate::survivor::SanityStrain, &mut Health, Option<&mut CircleOfWarding>, Option<&mut SwarmOfNightmares>)>, 
     item_library: Res<ItemLibrary>, 
     glyph_library: Res<GlyphLibrary>, 
     mut item_collected_writer: EventWriter<ItemCollectedEvent>, 
     skill_library: Res<crate::skills::SkillLibrary>,
 ) { 
     for event in events.read() { 
-        let Ok((mut player_stats, mut sanity_strain, mut health_stats, mut circle_aura, mut nightmare_swarm)) = player_query.get_single_mut() else { continue; }; 
+        let Ok((mut player_stats, mut sanity_strain, mut health_stats, mut opt_circle_aura, mut opt_nightmare_swarm)) = player_query.get_single_mut() else { continue; }; 
         match &event.0.upgrade_type { 
             UpgradeType::SurvivorSpeed(percentage) => { player_stats.speed *= 1.0 + (*percentage as f32 / 100.0); } 
             UpgradeType::MaxEndurance(amount) => { player_stats.max_health += *amount; health_stats.0 += *amount; health_stats.0 = health_stats.0.min(player_stats.max_health); } 
-            UpgradeType::IchorBlastIntensity(bonus_amount) => { player_stats.ichor_blast_damage_bonus += *bonus_amount; } 
+            UpgradeType::IchorBlastIntensity(bonus_amount) => { player_stats.automatic_weapon_damage_bonus += *bonus_amount; } 
             UpgradeType::IchorBlastSpeed(percentage) => { let reduction_factor = *percentage as f32 / 100.0; let new_base_fire_rate_secs = sanity_strain.base_fire_rate_secs * (1.0 - reduction_factor); sanity_strain.base_fire_rate_secs = new_base_fire_rate_secs.max(0.05); let timer_duration_val = sanity_strain.base_fire_rate_secs; sanity_strain.fire_timer.set_duration(std::time::Duration::from_secs_f32(timer_duration_val));} 
-            UpgradeType::IchorBlastVelocity(percentage_increase) => { player_stats.ichor_blast_speed_multiplier *= 1.0 + (*percentage_increase as f32 / 100.0); } 
-            UpgradeType::IchorBlastPiercing(amount) => { player_stats.ichor_blast_piercing += *amount; } 
+            UpgradeType::IchorBlastVelocity(percentage_increase) => { player_stats.automatic_weapon_speed_multiplier *= 1.0 + (*percentage_increase as f32 / 100.0);} 
+            UpgradeType::IchorBlastPiercing(amount) => { player_stats.automatic_weapon_piercing_bonus += *amount; }  
             UpgradeType::EchoesGainMultiplier(percentage) => { player_stats.xp_gain_multiplier *= 1.0 + (*percentage as f32 / 100.0); } 
             UpgradeType::SoulAttractionRadius(percentage) => { player_stats.pickup_radius_multiplier *= 1.0 + (*percentage as f32 / 100.0); } 
-            UpgradeType::AdditionalIchorBlasts(amount) => { player_stats.additional_ichor_blasts += *amount; } 
-            UpgradeType::InscribeCircleOfWarding => { if !circle_aura.is_active { circle_aura.is_active = true; } else { circle_aura.base_damage_per_tick += 1; circle_aura.current_radius *= 1.1; }} 
-            UpgradeType::IncreaseCircleRadius(percentage) => { if circle_aura.is_active { circle_aura.current_radius *= 1.0 + (*percentage as f32 / 100.0); }} 
-            UpgradeType::IncreaseCircleDamage(amount) => { if circle_aura.is_active { circle_aura.base_damage_per_tick += *amount; }} 
-            UpgradeType::DecreaseCircleTickRate(percentage) => { if circle_aura.is_active { let reduction_factor = *percentage as f32 / 100.0; let current_tick_duration = circle_aura.damage_tick_timer.duration().as_secs_f32(); let new_tick_duration = (current_tick_duration * (1.0 - reduction_factor)).max(0.1); circle_aura.damage_tick_timer.set_duration(std::time::Duration::from_secs_f32(new_tick_duration)); } } 
+            UpgradeType::AdditionalIchorBlasts(amount) => { player_stats.additional_automatic_projectiles += *amount; } 
+            UpgradeType::IncreaseCircleRadius(percentage) => { if let Some(ref mut circle_aura) = opt_circle_aura { if circle_aura.is_active { circle_aura.current_radius *= 1.0 + (*percentage as f32 / 100.0); } } }
+            UpgradeType::IncreaseCircleDamage(amount) => { if let Some(ref mut circle_aura) = opt_circle_aura { if circle_aura.is_active { circle_aura.base_damage_per_tick += *amount; } } }
+            UpgradeType::DecreaseCircleTickRate(percentage) => { if let Some(ref mut circle_aura) = opt_circle_aura { if circle_aura.is_active { let reduction_factor = *percentage as f32 / 100.0; let current_tick_duration = circle_aura.damage_tick_timer.duration().as_secs_f32(); let new_tick_duration = (current_tick_duration * (1.0 - reduction_factor)).max(0.1); circle_aura.damage_tick_timer.set_duration(std::time::Duration::from_secs_f32(new_tick_duration)); } } }
             UpgradeType::EnduranceRegeneration(amount) => { player_stats.health_regen_rate += *amount; } 
-            UpgradeType::ManifestSwarmOfNightmares => { if !nightmare_swarm.is_active { nightmare_swarm.is_active = true; nightmare_swarm.num_larvae = nightmare_swarm.num_larvae.max(2); } else { nightmare_swarm.num_larvae += 1; nightmare_swarm.damage_per_hit += 1; }} 
-            UpgradeType::IncreaseNightmareCount(count) => { if nightmare_swarm.is_active { nightmare_swarm.num_larvae += *count; }} 
-            UpgradeType::IncreaseNightmareDamage(damage) => { if nightmare_swarm.is_active { nightmare_swarm.damage_per_hit += *damage; }} 
-            UpgradeType::IncreaseNightmareRadius(radius_increase) => { if nightmare_swarm.is_active { nightmare_swarm.orbit_radius += *radius_increase; }} 
-            UpgradeType::IncreaseNightmareRotationSpeed(speed_increase) => { if nightmare_swarm.is_active { nightmare_swarm.rotation_speed += *speed_increase; }} 
+            UpgradeType::IncreaseNightmareCount(count) => { if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm { if nightmare_swarm.is_active { nightmare_swarm.num_larvae += *count; } } }
+            UpgradeType::IncreaseNightmareDamage(damage) => { if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm { if nightmare_swarm.is_active { nightmare_swarm.damage_per_hit += *damage; } } }
+            UpgradeType::IncreaseNightmareRadius(radius_increase) => { if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm { if nightmare_swarm.is_active { nightmare_swarm.orbit_radius += *radius_increase; } } }
+            UpgradeType::IncreaseNightmareRotationSpeed(speed_increase) => { if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm { if nightmare_swarm.is_active { nightmare_swarm.rotation_speed += *speed_increase; } } }
             UpgradeType::IncreaseSkillDamage { slot_index, amount } => { if let Some(skill_instance) = player_stats.equipped_skills.get_mut(*slot_index) { skill_instance.flat_damage_bonus += *amount; skill_instance.current_level += 1; } } 
             UpgradeType::GrantRandomRelic => { if !item_library.items.is_empty() { let mut rng = rand::thread_rng(); if let Some(random_item_def) = item_library.items.choose(&mut rng) { item_collected_writer.send(ItemCollectedEvent(random_item_def.id)); } } } 
             UpgradeType::GrantSkill(skill_id_to_grant) => { let already_has_skill = player_stats.equipped_skills.iter().any(|s| s.definition_id == *skill_id_to_grant); if !already_has_skill { if player_stats.equipped_skills.len() < 5 { if let Some(skill_def) = skill_library.get_skill_definition(*skill_id_to_grant) { player_stats.equipped_skills.push(ActiveSkillInstance::new(*skill_id_to_grant, skill_def.base_glyph_slots)); } } } } 
@@ -182,6 +186,10 @@ fn apply_chosen_upgrade(
                     }
                 }
             }
+            UpgradeType::GrantSpecificWeapon { weapon_id } => { 
+                player_stats.equipped_weapon_id = Some(*weapon_id);
+                println!("Equipped new weapon: {:?}", weapon_id); 
+            }
         } 
     } 
 }
@@ -190,7 +198,7 @@ fn game_over_input_system(mut commands: Commands, keyboard_input: Res<ButtonInpu
 
 fn cleanup_session_entities(
     mut commands: Commands,
-    fragments_query: Query<Entity, With<IchorBlast>>, 
+    fragments_query: Query<Entity, With<AutomaticProjectile>>, 
     orbs_query: Query<Entity, With<EchoingSoul>>, 
     skill_projectiles_query: Query<Entity, With<crate::skills::SkillProjectile>>, 
     skill_aoe_query: Query<Entity, With<crate::skills::ActiveSkillAoEEffect>>, 
@@ -401,29 +409,23 @@ fn glyph_socketing_menu_input_system(
 }
 
 fn glyph_slot_button_interaction_system(
-    mut interaction_query: Query<
+    mut interaction_query: Query< 
         (&Interaction, &GlyphSlotDisplayButton, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
     selected_glyph: Res<SelectedInventoryGlyph>, 
-    skill_library: Res<GameSkillLibrary>,
-    glyph_library: Res<GlyphLibrary>,
-    player_query: Query<&Survivor>,
+    mut attempt_socket_writer: EventWriter<AttemptSocketGlyphEvent>,
 ) {
-    for (interaction, button_data, mut bg_color) in interaction_query.iter_mut() {
+    for (interaction, button_data, mut bg_color) in interaction_query.iter_mut() { 
         match *interaction {
             Interaction::Pressed => {
                 *bg_color = BUTTON_PRESSED_BG_COLOR.into();
                 if let Some(selected_glyph_id) = selected_glyph.glyph_id {
-                    if let Ok(player) = player_query.get_single() {
-                        if let Some(skill_instance) = player.equipped_skills.get(button_data.skill_idx) {
-                            if let Some(skill_def) = skill_library.get_skill_definition(skill_instance.definition_id) {
-                                if let Some(glyph_def) = glyph_library.get_glyph_definition(selected_glyph_id) {
-                                    println!("Attempting to socket glyph '{}' into skill '{}' slot {}", glyph_def.name, skill_def.name, button_data.slot_idx + 1);
-                                }
-                            }
-                        }
-                    }
+                    attempt_socket_writer.send(AttemptSocketGlyphEvent {
+                        skill_idx: button_data.skill_idx,
+                        slot_idx: button_data.slot_idx,
+                        glyph_id: selected_glyph_id,
+                    });
                 } else {
                     println!("Clicked skill slot {} on skill {}, but no glyph is selected.", button_data.slot_idx + 1, button_data.skill_idx + 1);
                 }
@@ -434,79 +436,91 @@ fn glyph_slot_button_interaction_system(
     }
 }
 
-fn inventory_glyph_button_interaction_system(
-    // Query for buttons whose interaction state *just changed*
-    mut changed_interaction_query: Query<
-        (Entity, &Interaction, &InventoryGlyphDisplayButton),
-        (Changed<Interaction>, With<Button>),
-    >,
-    // Query to access all inventory buttons to update their colors
-    mut all_buttons_query: Query<(Entity, &mut BackgroundColor, &InventoryGlyphDisplayButton), With<Button>>,
+fn detect_inventory_glyph_press_system(
+    interaction_query: Query<(&Interaction, &InventoryGlyphDisplayButton), (Changed<Interaction>, With<Button>)>,
     mut selected_glyph: ResMut<SelectedInventoryGlyph>,
 ) {
-    let mut pressed_button_info: Option<(Entity, GlyphId)> = None;
-
-    // First, check for any presses among the buttons whose interaction changed
-    for (entity, interaction, button_data) in changed_interaction_query.iter() {
+    for (interaction, button_data) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
-            pressed_button_info = Some((entity, button_data.glyph_id));
-            break; // Process one press per frame for selection logic
+            if selected_glyph.glyph_id == Some(button_data.glyph_id) {
+                selected_glyph.glyph_id = None; 
+                println!("Deselected inventory glyph: {:?}", button_data.glyph_id);
+            } else {
+                selected_glyph.glyph_id = Some(button_data.glyph_id); 
+                println!("Selected inventory glyph: {:?}", button_data.glyph_id);
+            }
+            return; 
         }
     }
+}
 
-    let mut selection_updated_this_frame = false;
-
-    if let Some((pressed_entity, pressed_glyph_id)) = pressed_button_info {
-        selection_updated_this_frame = true;
-        if selected_glyph.glyph_id == Some(pressed_glyph_id) {
-            // Clicked the currently selected glyph: deselect it
-            selected_glyph.glyph_id = None;
-            println!("Deselected inventory glyph: {:?}", pressed_glyph_id);
-        } else {
-            // Selected a new glyph
-            selected_glyph.glyph_id = Some(pressed_glyph_id);
-            println!("Selected inventory glyph: {:?}", pressed_glyph_id);
-        }
-    }
-
-    // Update all button colors based on the final selection state and current hover states
-    for (entity, mut bg_color, button_data) in all_buttons_query.iter_mut() {
+fn update_inventory_glyph_visuals_system(
+    selected_glyph: Res<SelectedInventoryGlyph>,
+    mut all_buttons_query: Query<(&Interaction, &InventoryGlyphDisplayButton, &mut BackgroundColor), With<Button>>,
+) {
+    for (interaction, button_data, mut bg_color) in all_buttons_query.iter_mut() {
         if selected_glyph.glyph_id == Some(button_data.glyph_id) {
             *bg_color = BUTTON_SELECTED_BG_COLOR.into();
         } else {
-            // If no press occurred this frame OR if this button wasn't the one pressed but its interaction changed.
-            // We need its current interaction state for hover.
-            // The `changed_interaction_query` is only for *changed* interactions.
-            // For buttons that didn't change interaction but need color reset (e.g., after another was selected),
-            // we fall back to default. For hover on non-selected, we need their current Interaction.
-            // This is tricky with two queries. A simpler way: if changed_interaction_query had the BgColor, use it.
-            // Otherwise, iterate all_buttons and check interaction from a non-mut query if possible, or just handle selected/default.
-
-            // Let's try to get the current interaction for *this* specific entity if it's in the changed_interaction_query.
-            // This logic can be complex to get right without conflicts.
-            // For now, if a press happened, all buttons are reset/set.
-            // If no press, we only update based on hover for those in `changed_interaction_query` that are not selected.
-            
-            let mut current_interaction = Interaction::None; // Default if not in changed_interaction_query
-            if !selection_updated_this_frame { // Only consider hover if no press changed the selection
-                for (changed_entity, interaction, _) in changed_interaction_query.iter() {
-                    if changed_entity == entity {
-                        current_interaction = *interaction;
-                        break;
-                    }
-                }
+            match *interaction {
+                Interaction::Hovered => *bg_color = BUTTON_HOVER_BG_COLOR.into(),
+                Interaction::None => *bg_color = BUTTON_BG_COLOR.into(),
+                Interaction::Pressed => *bg_color = BUTTON_PRESSED_BG_COLOR.into(), 
             }
+        }
+    }
+}
 
 
-            if selected_glyph.glyph_id == Some(button_data.glyph_id) { // Should be caught by the outer if, but defensive
-                 *bg_color = BUTTON_SELECTED_BG_COLOR.into();
-            } else {
-                match current_interaction {
-                    Interaction::Hovered => *bg_color = BUTTON_HOVER_BG_COLOR.into(),
-                    Interaction::None => *bg_color = BUTTON_BG_COLOR.into(),
-                    Interaction::Pressed => { // If pressed but not selected (e.g. another button was pressed)
-                        *bg_color = BUTTON_BG_COLOR.into(); 
+fn handle_attempt_socket_glyph_event(
+    mut events: EventReader<AttemptSocketGlyphEvent>,
+    mut player_query: Query<&mut Survivor>,
+    mut selected_glyph: ResMut<SelectedInventoryGlyph>,
+    glyph_library: Res<GlyphLibrary>, 
+    skill_library: Res<GameSkillLibrary>,
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
+) {
+    if let Ok(mut player) = player_query.get_single_mut() {
+        for event in events.read() {
+            let skill_idx_event = event.skill_idx;
+            let slot_idx_event = event.slot_idx;
+            let glyph_id_to_socket_event = event.glyph_id;
+
+            let inventory_idx_opt = player.collected_glyphs.iter().position(|&g_id| g_id == glyph_id_to_socket_event);
+
+            if let Some(inventory_idx) = inventory_idx_opt {
+                let can_socket_and_skill_exists = {
+                    player.equipped_skills.get(skill_idx_event)
+                        .map_or(false, |skill_instance_ref| {
+                            slot_idx_event < skill_instance_ref.equipped_glyphs.len() && 
+                            skill_instance_ref.equipped_glyphs[slot_idx_event].is_none()
+                        })
+                };
+                
+                if can_socket_and_skill_exists {
+                    let removed_glyph_id = player.collected_glyphs.remove(inventory_idx);
+                    
+                    if let Some(skill_instance_mut) = player.equipped_skills.get_mut(skill_idx_event) {
+                        skill_instance_mut.equipped_glyphs[slot_idx_event] = Some(removed_glyph_id);
+
+                        if let Some(glyph_def) = glyph_library.get_glyph_definition(removed_glyph_id){
+                             if let Some(skill_def) = skill_library.get_skill_definition(skill_instance_mut.definition_id){
+                                println!("Successfully socketed glyph '{}' into skill '{}' slot {}.", glyph_def.name, skill_def.name, slot_idx_event + 1);
+                             }
+                        }
+                        sound_event_writer.send(PlaySoundEvent(SoundEffect::OmenAccepted)); 
+                        selected_glyph.glyph_id = None; 
+                    } else {
+                        player.collected_glyphs.insert(inventory_idx, removed_glyph_id); 
+                        println!("Critical Error: Failed to get mutable skill instance after successful checks. Glyph restored to inventory.");
                     }
+                } else {
+                     println!("Error: Skill {} Slot {} is not empty, or skill/slot index invalid.", skill_idx_event + 1, slot_idx_event + 1);
+                }
+            } else {
+                println!("Error: Glyph {:?} not found in inventory for socketing.", glyph_id_to_socket_event);
+                if selected_glyph.glyph_id == Some(glyph_id_to_socket_event) {
+                    selected_glyph.glyph_id = None;
                 }
             }
         }
