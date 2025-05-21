@@ -1,5 +1,5 @@
+// src/glyphs.rs
 use bevy::prelude::*;
-// use crate::skills::SkillId; // Removed unused import
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Default)]
 pub struct GlyphId(pub u32);
@@ -9,6 +9,9 @@ pub enum GlyphEffectType {
     ProjectileChain { bounces: u32, },
     IncreasedAoEDamage { percent_increase: f32, },
     AddedChaosDamageToProjectile { damage_amount: i32, },
+    IncreaseBaseDamage { amount: i32 }, 
+    IncreaseRate { percent_boost: f32 }, 
+    IncreaseEffectScale { percent_boost: f32 }, // New effect for range/AoE size
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -63,5 +66,23 @@ fn populate_glyph_library(mut library: ResMut<GlyphLibrary>) {
         name: "Glyph of Abyssal Touch".to_string(),
         description: "Your projectiles deal an additional 10 chaos damage.".to_string(),
         effect: GlyphEffectType::AddedChaosDamageToProjectile { damage_amount: 10 },
+    });
+    library.glyphs.push(GlyphDefinition {
+        id: GlyphId(4),
+        name: "Glyph of Focused Intensity".to_string(),
+        description: "Increases the direct damage of the modified ability or weapon by +5.".to_string(),
+        effect: GlyphEffectType::IncreaseBaseDamage { amount: 5 },
+    });
+    library.glyphs.push(GlyphDefinition { 
+        id: GlyphId(5),
+        name: "Glyph of Swift Execution".to_string(),
+        description: "Increases attack/casting speed by 10% (reduces cooldowns/fire intervals).".to_string(),
+        effect: GlyphEffectType::IncreaseRate { percent_boost: 0.10 },
+    });
+    library.glyphs.push(GlyphDefinition { // New Glyph
+        id: GlyphId(6),
+        name: "Glyph of Eldritch Expansion".to_string(),
+        description: "Increases the range (projectile lifetime) or area of effect by 15%.".to_string(),
+        effect: GlyphEffectType::IncreaseEffectScale { percent_boost: 0.15 },
     });
 }

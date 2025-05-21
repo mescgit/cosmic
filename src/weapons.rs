@@ -1,92 +1,72 @@
+// mescgit/bulletheavengame/bulletheavengame-a4c13a6183f1601049189db29b13bcfdace86153/src/weapons.rs
 use bevy::prelude::*;
 use crate::{
-    components::{Damage, Health, Lifetime}, 
-    survivor::Survivor,
-    horror::Horror,
-    game::AppState,
-    visual_effects::{spawn_damage_text, ImpactEffectRequest, spawn_impact_effect},
+    survivor::Survivor, // Changed
+    horror::Horror,   // Changed
+    components::{Health, Damage},
+    game::AppState, // GameState import removed as it was unused
     audio::{PlaySoundEvent, SoundEffect},
+    visual_effects::{spawn_damage_text}, // Removed ImpactEffectRequest, spawn_impact_effect
 };
 
-const CIRCLE_OF_WARDING_BASE_RADIUS: f32 = 120.0;
-const CIRCLE_OF_WARDING_BASE_DAMAGE: i32 = 5;
-const CIRCLE_OF_WARDING_TICK_INTERVAL_SECONDS: f32 = 0.8;
-
-const SWARM_OF_NIGHTMARES_BASE_RADIUS: f32 = 80.0;
-const SWARM_OF_NIGHTMARES_BASE_DAMAGE: i32 = 3;
-const SWARM_OF_NIGHTMARES_ROTATION_SPEED: f32 = 1.5; 
-const SWARM_OF_NIGHTMARES_ORBIT_SPEED: f32 = 80.0; 
-const SWARM_LARVA_SIZE: Vec2 = Vec2::new(12.0,12.0);
-
-const DOOM_PULSE_AURA_BASE_RADIUS: f32 = 75.0;
-const DOOM_PULSE_AURA_BASE_DAMAGE: i32 = 8;
-const DOOM_PULSE_AURA_TICK_INTERVAL_SECONDS: f32 = 2.0; 
-const DOOM_PULSE_AURA_VISUAL_DURATION_SECONDS: f32 = 0.3;
-
-
-#[derive(Component, Debug, Reflect)] #[reflect(Component)] 
+// --- Circle of Warding Aura Weapon ---
+#[derive(Component, Debug)]
 pub struct CircleOfWarding {
-    pub is_active: bool,
+    pub damage_tick_timer: Timer,
     pub current_radius: f32,
     pub base_damage_per_tick: i32,
-    pub damage_tick_timer: Timer,
-}
-
-#[derive(Component, Debug, Reflect)] #[reflect(Component)] 
-pub struct SwarmOfNightmares {
     pub is_active: bool,
-    pub num_larvae: u32,
-    pub orbit_radius: f32,
-    pub damage_per_hit: i32,
-    pub rotation_speed: f32, 
-    pub current_angle: f32,  
-}
-
-#[derive(Component)]
-pub struct NightmareLarva {
-    pub target_orbit_position: Vec2,
-    pub parent_survivor: Entity, 
-}
-
-#[derive(Component, Debug, Reflect)] #[reflect(Component)] 
-pub struct DoomPulseAura {
-    pub damage: i32,
-    pub radius_sq: f32,
-    pub pulse_timer: Timer,
+    pub visual_entity: Option<Entity>,
 }
 
 impl Default for CircleOfWarding {
     fn default() -> Self {
         Self {
-            is_active: false, 
-            current_radius: CIRCLE_OF_WARDING_BASE_RADIUS,
-            base_damage_per_tick: CIRCLE_OF_WARDING_BASE_DAMAGE,
-            damage_tick_timer: Timer::from_seconds(CIRCLE_OF_WARDING_TICK_INTERVAL_SECONDS, TimerMode::Repeating),
+            damage_tick_timer: Timer::from_seconds(0.5, TimerMode::Repeating),
+            current_radius: 75.0,
+            base_damage_per_tick: 3,
+            is_active: false,
+            visual_entity: None,
         }
     }
+}
+
+#[derive(Component)]
+struct CircleOfWardingVisual;
+
+
+// --- Swarm of Nightmares Weapon ---
+const NIGHTMARE_LARVA_SPRITE_SIZE: Vec2 = Vec2::new(32.0, 32.0);
+const NIGHTMARE_LARVA_DEBUG_COLOR: Color = Color::rgb(0.4, 0.8, 0.3);
+const NIGHTMARE_LARVA_LOCAL_Z: f32 = 0.3;
+
+#[derive(Component, Debug)]
+pub struct SwarmOfNightmares {
+    pub is_active: bool,
+    pub num_larvae: u32,
+    pub orbit_radius: f32,
+    pub rotation_speed: f32,
+    pub damage_per_hit: i32,
+    pub hit_cooldown_duration: f32,
 }
 
 impl Default for SwarmOfNightmares {
     fn default() -> Self {
         Self {
-            is_active: false, 
-            num_larvae: 0, 
-            orbit_radius: SWARM_OF_NIGHTMARES_BASE_RADIUS,
-            damage_per_hit: SWARM_OF_NIGHTMARES_BASE_DAMAGE,
-            rotation_speed: SWARM_OF_NIGHTMARES_ROTATION_SPEED,
-            current_angle: 0.0,
+            is_active: false,
+            num_larvae: 0,
+            orbit_radius: 80.0,
+            rotation_speed: std::f32::consts::PI / 2.0,
+            damage_per_hit: 5,
+            hit_cooldown_duration: 0.75,
         }
     }
 }
 
-impl Default for DoomPulseAura {
-    fn default() -> Self {
-        Self {
-            damage: DOOM_PULSE_AURA_BASE_DAMAGE,
-            radius_sq: DOOM_PULSE_AURA_BASE_RADIUS.powi(2),
-            pulse_timer: Timer::from_seconds(DOOM_PULSE_AURA_TICK_INTERVAL_SECONDS, TimerMode::Repeating),
-        }
-    }
+#[derive(Component)]
+pub struct NightmareLarva {
+    pub angle: f32,
+    pub enemies_on_cooldown: Vec<(Entity, Timer)>,
 }
 
 
@@ -94,125 +74,135 @@ pub struct WeaponsPlugin;
 
 impl Plugin for WeaponsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .register_type::<CircleOfWarding>()
-            .register_type::<SwarmOfNightmares>()
-            .register_type::<DoomPulseAura>() 
-            .add_systems(Update, 
-                (
-                    circle_of_warding_system,
-                    manage_nightmare_larvae_system,
-                    nightmare_larva_movement_system,
-                    nightmare_larva_collision_system,
-                    doom_pulse_aura_system, 
-                ).chain().run_if(in_state(AppState::InGame))
-            );
+        app.add_systems(Update,
+            (
+                circle_of_warding_aura_system,
+                update_circle_of_warding_visual_system,
+                manage_nightmare_larvae_system,
+                nightmare_larva_movement_system,
+                nightmare_larva_collision_system,
+            )
+            .chain()
+            .run_if(in_state(AppState::InGame))
+        );
+        app.add_systems(PostUpdate, cleanup_aura_visuals_on_weapon_remove);
     }
 }
 
-
-fn circle_of_warding_system(
-    mut commands: Commands,
+fn circle_of_warding_aura_system(
+    _commands: Commands,
     time: Res<Time>,
-    mut query: Query<(&GlobalTransform, &mut CircleOfWarding), With<Survivor>>,
-    mut horror_query: Query<(&GlobalTransform, &mut Health), With<Horror>>,
-    asset_server: Res<AssetServer>,
-    mut sound_event_writer: EventWriter<PlaySoundEvent>,
-    mut impact_effect_requests: EventWriter<ImpactEffectRequest>,
+    mut player_query: Query<(&Transform, &mut CircleOfWarding), With<Survivor>>,
+    mut horror_query: Query<(&Transform, &mut Health, &Horror), With<Horror>>,
 ) {
-    for (survivor_g_transform, mut circle) in query.iter_mut() {
-        if !circle.is_active { continue; }
-
-        circle.damage_tick_timer.tick(time.delta());
-        if circle.damage_tick_timer.just_finished() {
-            let survivor_pos = survivor_g_transform.translation().truncate();
-            let radius_sq = circle.current_radius.powi(2);
-
-            sound_event_writer.send(PlaySoundEvent(SoundEffect::AuraPulse)); 
-
-            for (horror_g_transform, mut horror_health) in horror_query.iter_mut() {
-                let horror_pos = horror_g_transform.translation().truncate();
-                if horror_pos.distance_squared(survivor_pos) < radius_sq {
-                    horror_health.0 -= circle.base_damage_per_tick;
-                    spawn_damage_text(&mut commands, &asset_server, horror_g_transform.translation(), circle.base_damage_per_tick, &time);
-                    
-                    impact_effect_requests.send(ImpactEffectRequest {
-                        position: horror_g_transform.translation(),
-                        base_color: Color::rgba(0.8, 0.7, 0.3, 0.7),
-                        num_particles: 3,
-                    });
+    for (player_transform, mut aura_weapon) in player_query.iter_mut() {
+        if !aura_weapon.is_active { continue; }
+        aura_weapon.damage_tick_timer.tick(time.delta());
+        if aura_weapon.damage_tick_timer.just_finished() {
+            let player_position = player_transform.translation.truncate();
+            let aura_radius_sq = aura_weapon.current_radius.powi(2);
+            for (horror_transform, mut horror_health, _horror_data) in horror_query.iter_mut() {
+                let horror_position = horror_transform.translation.truncate();
+                if player_position.distance_squared(horror_position) < aura_radius_sq {
+                    horror_health.0 -= aura_weapon.base_damage_per_tick;
                 }
             }
         }
     }
 }
 
+fn update_circle_of_warding_visual_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut player_query: Query<(Entity, &mut CircleOfWarding), With<Survivor>>,
+    mut visual_query: Query<(Entity, &mut Transform, &mut Sprite), With<CircleOfWardingVisual>>,
+) {
+    if let Ok((player_entity, mut aura_weapon)) = player_query.get_single_mut() {
+        if aura_weapon.is_active {
+            let diameter = aura_weapon.current_radius * 2.0;
+            let target_scale = diameter;
+            if let Some(visual_entity) = aura_weapon.visual_entity {
+                if let Ok((_v_ent, mut visual_transform, _visual_sprite)) = visual_query.get_mut(visual_entity) {
+                    visual_transform.scale = Vec3::splat(target_scale);
+                } else { aura_weapon.visual_entity = None; }
+            }
+            if aura_weapon.visual_entity.is_none() {
+                let visual_entity = commands.spawn((
+                    SpriteBundle {
+                        texture: asset_server.load("sprites/circle_of_warding_effect_placeholder.png"),
+                        sprite: Sprite { custom_size: Some(Vec2::splat(1.0)), color: Color::rgba(0.4, 0.2, 0.6, 0.4), ..default() },
+                        transform: Transform { translation: Vec3::new(0.0, 0.0, 0.1), scale: Vec3::splat(target_scale), ..default() },
+                        visibility: Visibility::Visible, ..default()
+                    }, CircleOfWardingVisual, Name::new("CircleOfWardingVisual"),
+                )).id();
+                commands.entity(player_entity).add_child(visual_entity);
+                aura_weapon.visual_entity = Some(visual_entity);
+            }
+        } else {
+            if let Some(visual_entity) = aura_weapon.visual_entity.take() {
+                if visual_query.get_mut(visual_entity).is_ok() { commands.entity(visual_entity).despawn_recursive(); }
+            }
+        }
+    }
+}
+
+fn cleanup_aura_visuals_on_weapon_remove(
+    _commands: Commands,
+    _removed_aura_weapons: RemovedComponents<CircleOfWarding>,
+    _visual_query: Query<Entity, With<CircleOfWardingVisual>>,
+) {
+    // Placeholder
+}
+
 fn manage_nightmare_larvae_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    time: Res<Time>, 
-    mut survivor_query: Query<(Entity, &mut SwarmOfNightmares, &Transform), With<Survivor>>,
+    player_query: Query<(Entity, &SwarmOfNightmares), (With<Survivor>, Changed<SwarmOfNightmares>)>,
+    children_query: Query<&Children>,
     larva_query: Query<Entity, With<NightmareLarva>>,
 ) {
-    for (survivor_entity, mut swarm, _survivor_transform) in survivor_query.iter_mut() {
-        if !swarm.is_active {
-            for larva_entity in larva_query.iter() { 
-                if let Some(ec) = commands.get_entity(larva_entity) { ec.despawn_recursive(); } 
-            }
+    for (player_entity, weapon_stats) in player_query.iter() {
+        let mut current_larva_count = 0;
+        if let Ok(children) = children_query.get(player_entity) {
+            for &child_entity in children.iter() { if larva_query.get(child_entity).is_ok() { current_larva_count += 1; } }
+        }
+        if !weapon_stats.is_active {
+            if current_larva_count > 0 { if let Ok(children) = children_query.get(player_entity) { for &child_entity in children.iter() { if larva_query.get(child_entity).is_ok() { commands.entity(child_entity).despawn_recursive(); } } } }
             continue;
         }
-
-        let current_larva_count = larva_query.iter().count() as u32;
-        if current_larva_count < swarm.num_larvae {
-            for _ in 0..(swarm.num_larvae - current_larva_count) {
-                commands.spawn((
-                    SpriteBundle {
-                        texture: asset_server.load("sprites/nightmare_larva_placeholder.png"),
-                        sprite: Sprite { custom_size: Some(SWARM_LARVA_SIZE), ..default() },
-                        transform: Transform::from_xyz(0.0, 0.0, 0.8), 
-                        ..default()
-                    },
-                    NightmareLarva { target_orbit_position: Vec2::ZERO, parent_survivor: survivor_entity },
-                    Damage(swarm.damage_per_hit), 
-                    Name::new("NightmareLarva"),
-                ));
+        if current_larva_count < weapon_stats.num_larvae {
+            let num_to_spawn = weapon_stats.num_larvae - current_larva_count;
+            for i in 0..num_to_spawn {
+                let angle_offset = (current_larva_count + i) as f32 * (2.0 * std::f32::consts::PI / weapon_stats.num_larvae.max(1) as f32);
+                let initial_local_pos = Vec3::new( weapon_stats.orbit_radius * angle_offset.cos(), weapon_stats.orbit_radius * angle_offset.sin(), NIGHTMARE_LARVA_LOCAL_Z );
+                let larva_entity = commands.spawn(( SpriteBundle { texture: asset_server.load("sprites/nightmare_larva_placeholder.png"), sprite: Sprite { custom_size: Some(NIGHTMARE_LARVA_SPRITE_SIZE), color: NIGHTMARE_LARVA_DEBUG_COLOR, ..default() }, transform: Transform::from_translation(initial_local_pos), visibility: Visibility::Visible, ..default() }, NightmareLarva { angle: angle_offset, enemies_on_cooldown: Vec::new(), }, Damage(weapon_stats.damage_per_hit), Name::new(format!("NightmareLarva_{}", i)), )).id();
+                commands.entity(player_entity).add_child(larva_entity);
             }
-        } else if current_larva_count > swarm.num_larvae {
-            for larva_entity in larva_query.iter().take((current_larva_count - swarm.num_larvae) as usize) {
-                 if let Some(ec) = commands.get_entity(larva_entity) { ec.despawn_recursive(); } 
+        } else if current_larva_count > weapon_stats.num_larvae {
+            let num_to_despawn = current_larva_count - weapon_stats.num_larvae;
+            if let Ok(children) = children_query.get(player_entity) {
+                let mut despawned_count = 0;
+                for &child_entity in children.iter() { if larva_query.get(child_entity).is_ok() && despawned_count < num_to_despawn { commands.entity(child_entity).despawn_recursive(); despawned_count += 1; } }
             }
-        }
-        swarm.current_angle += swarm.rotation_speed * time.delta_seconds();
-        if swarm.current_angle > std::f32::consts::TAU {
-            swarm.current_angle -= std::f32::consts::TAU;
         }
     }
 }
 
 fn nightmare_larva_movement_system(
     time: Res<Time>,
-    mut larva_query: Query<(&mut Transform, &mut NightmareLarva), With<NightmareLarva>>,
-    survivor_query: Query<&Transform, (With<Survivor>, Without<NightmareLarva>)>,
-    swarm_query: Query<&SwarmOfNightmares, With<Survivor>>, 
+    player_query: Query<(Entity, &Transform), (With<Survivor>, Without<NightmareLarva>)>,
+    mut larva_query: Query<(&mut NightmareLarva, &mut Transform, &Parent)>,
+    weapon_stats_query: Query<&SwarmOfNightmares, With<Survivor>>,
 ) {
-    if let Ok(survivor_transform) = survivor_query.get_single() {
-        if let Ok(swarm) = swarm_query.get_single() {
-            if !swarm.is_active { return; }
-
-            let survivor_pos = survivor_transform.translation.truncate();
-            let mut angle_step = 0.0;
-            if swarm.num_larvae > 0 { 
-                angle_step = 2.0 * std::f32::consts::PI / swarm.num_larvae as f32;
-            }
-            
-            let base_angle = swarm.current_angle; 
-
-            for (i, (mut larva_transform, mut larva_comp)) in larva_query.iter_mut().enumerate() {
-                let current_larva_angle = base_angle + (i as f32 * angle_step);
-                larva_comp.target_orbit_position = survivor_pos + Vec2::new(current_larva_angle.cos(), current_larva_angle.sin()) * swarm.orbit_radius;
-                
-                let direction_to_target = (larva_comp.target_orbit_position - larva_transform.translation.truncate()).normalize_or_zero();
-                larva_transform.translation += (direction_to_target * SWARM_OF_NIGHTMARES_ORBIT_SPEED * time.delta_seconds()).extend(0.0);
+    if let Ok((player_entity, _player_transform)) = player_query.get_single() {
+        if let Ok(weapon_stats) = weapon_stats_query.get(player_entity) {
+            if !weapon_stats.is_active || weapon_stats.num_larvae == 0 { return; }
+            for (mut larva, mut larva_transform, parent) in larva_query.iter_mut() {
+                if parent.get() == player_entity {
+                    larva.angle += weapon_stats.rotation_speed * time.delta_seconds(); larva.angle %= 2.0 * std::f32::consts::PI;
+                    let mut local_pos = Vec3::ZERO; local_pos.x = weapon_stats.orbit_radius * larva.angle.cos(); local_pos.y = weapon_stats.orbit_radius * larva.angle.sin(); local_pos.z = NIGHTMARE_LARVA_LOCAL_Z;
+                    larva_transform.translation = local_pos;
+                }
             }
         }
     }
@@ -220,70 +210,32 @@ fn nightmare_larva_movement_system(
 
 fn nightmare_larva_collision_system(
     mut commands: Commands,
-    larva_query: Query<(Entity, &GlobalTransform, &Damage), With<NightmareLarva>>,
-    mut horror_query: Query<(&GlobalTransform, &mut Health, &Horror)>, 
-    asset_server: Res<AssetServer>,
     time: Res<Time>,
+    mut larva_query: Query<(Entity, &GlobalTransform, &Damage, &mut NightmareLarva)>,
+    mut horror_query: Query<(Entity, &GlobalTransform, &mut Health, &Horror)>, // Added &Horror
+    asset_server: Res<AssetServer>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
+    player_weapon_query: Query<&SwarmOfNightmares, With<Survivor>>,
 ) {
-    for (larva_entity, larva_g_transform, larva_damage) in larva_query.iter() {
-        for (horror_g_transform, mut horror_health, horror_data) in horror_query.iter_mut() { 
-            let distance = larva_g_transform.translation().truncate().distance(horror_g_transform.translation().truncate());
-            let horror_radius = horror_data.size.x / 2.0; 
-            if distance < SWARM_LARVA_SIZE.x / 2.0 + horror_radius { 
-                sound_event_writer.send(PlaySoundEvent(SoundEffect::OrganicHit)); 
+    let Ok(weapon_stats) = player_weapon_query.get_single() else { return; };
+    if !weapon_stats.is_active { return; }
+
+    for (_larva_entity, larva_g_transform, larva_damage, mut larva_data) in larva_query.iter_mut() {
+        larva_data.enemies_on_cooldown.retain_mut(|(_enemy_id, timer)| {
+            timer.tick(time.delta()); !timer.finished()
+        });
+        let larva_pos = larva_g_transform.translation().truncate();
+        let larva_radius = NIGHTMARE_LARVA_SPRITE_SIZE.x / 2.0;
+
+        for (horror_entity, horror_gtransform, mut horror_health, horror_data) in horror_query.iter_mut() { // Added horror_data
+            if larva_data.enemies_on_cooldown.iter().any(|(e_id, _)| *e_id == horror_entity) { continue; }
+            let horror_pos = horror_gtransform.translation().truncate();
+            let horror_radius = horror_data.size.x / 2.0; // Use horror_data
+            if larva_pos.distance(horror_pos) < larva_radius + horror_radius {
+                sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit));
                 horror_health.0 -= larva_damage.0;
-                spawn_damage_text(&mut commands, &asset_server, horror_g_transform.translation(), larva_damage.0, &time);
-                commands.entity(larva_entity).despawn_recursive();
-                break; 
-            }
-        }
-    }
-}
-
-fn doom_pulse_aura_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut player_query: Query<(Entity, &GlobalTransform, &mut DoomPulseAura), With<Survivor>>,
-    mut horror_query: Query<(&GlobalTransform, &mut Health), With<Horror>>,
-    asset_server: Res<AssetServer>,
-    mut sound_event_writer: EventWriter<PlaySoundEvent>,
-    mut impact_effect_requests: EventWriter<ImpactEffectRequest>,
-) {
-    for (player_entity, player_g_transform, mut aura) in player_query.iter_mut() {
-        aura.pulse_timer.tick(time.delta());
-        if aura.pulse_timer.just_finished() {
-            let player_pos = player_g_transform.translation().truncate();
-            sound_event_writer.send(PlaySoundEvent(SoundEffect::AuraPulse)); 
-
-            commands.entity(player_entity).with_children(|parent| {
-                parent.spawn((
-                    SpriteBundle {
-                        texture: asset_server.load("sprites/doom_pulse_effect_placeholder.png"), 
-                        sprite: Sprite {
-                            custom_size: Some(Vec2::splat(DOOM_PULSE_AURA_BASE_RADIUS * 2.0)),
-                            color: Color::rgba(0.6, 0.1, 0.7, 0.5), 
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(0.0, 0.0, 0.1), 
-                        ..default()
-                    },
-                    Lifetime { timer: Timer::from_seconds(DOOM_PULSE_AURA_VISUAL_DURATION_SECONDS, TimerMode::Once)},
-                    Name::new("DoomPulseVisual"),
-                ));
-            });
-
-            for (horror_g_transform, mut horror_health) in horror_query.iter_mut() { 
-                let horror_pos = horror_g_transform.translation().truncate();
-                if horror_pos.distance_squared(player_pos) < aura.radius_sq {
-                    horror_health.0 -= aura.damage;
-                    spawn_damage_text(&mut commands, &asset_server, horror_g_transform.translation(), aura.damage, &time);
-                    impact_effect_requests.send(ImpactEffectRequest {
-                        position: horror_g_transform.translation(),
-                        base_color: Color::rgba(0.6, 0.1, 0.7, 0.7),
-                        num_particles: 2,
-                    });
-                }
+                spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), larva_damage.0, &time);
+                larva_data.enemies_on_cooldown.push((horror_entity, Timer::from_seconds(weapon_stats.hit_cooldown_duration, TimerMode::Once)));
             }
         }
     }

@@ -1,0 +1,34 @@
+Synopsis of Vibe Coding Session:
+
+Over this session, we've made significant strides in evolving the "Eldritch Hero" game, focusing primarily on Phase 2: Defining Combat Identity & Expanding Content.
+
+    Automatic Ability System (Formerly Ichor Blast):
+        We successfully refactored the original hardcoded "Ichor Blast" into a more generic "Automatic Ability System."
+        Defined data structures (AutomaticWeaponId, AutomaticWeaponDefinition, AutomaticWeaponLibrary in src/items.rs) to manage different automatic weapons with distinct stats (damage, fire rate, projectile speed, piercing, additional projectiles) and visual properties (sprite, size, color, lifetime).
+        The Survivor now equips an AutomaticWeaponId, and the survivor_casting_system in src/survivor.rs dynamically uses the equipped weapon's definition to control projectile spawning and characteristics.
+        The projectile spawning logic was generalized from spawn_ichor_blast to spawn_automatic_projectile in the renamed src/automatic_projectiles.rs module.
+        We defined three distinct automatic weapon types: "Primordial Ichor Blast," "Eldritch Gatling," and "Void Cannon."
+        A debug mechanism (F5/F6 keys) was added in src/game.rs to allow switching between these equipped automatic weapons for testing.
+        Survivor stats and UpgradeTypes related to the primary attack were generalized (e.g., ichor_blast_damage_bonus to auto_weapon_damage_bonus, UpgradeType::IchorBlastIntensity to UpgradeType::IncreaseAutoWeaponDamage).
+
+    Integration of Aura/Orbiter Weapons:
+        CircleOfWarding and SwarmOfNightmares (from src/weapons.rs) were integrated into the item system by making them grantable/activatable via new Relic items ("Glyph-Etched Wardstone," "Broodmother's Oculus") defined in src/items.rs. This was achieved by adding new ItemEffect variants and updating apply_collected_item_effects_system.
+
+    Active Skill System Enhancements:
+        A new defensive active skill, "Ethereal Ward," was conceptualized and implemented.
+        This involved adding SkillEffectType::TemporaryShield, defining the skill in src/skills.rs, creating an ActiveShield component, and implementing its activation logic in survivor_skill_input_system and its damage absorption logic in survivor_horror_collision_system (src/survivor.rs) and horror_projectile_collision_system (src/horror.rs).
+        An upgrade to grant this new skill was also added.
+
+    Glyph System Development:
+        We established that glyphs can modify both Active Skills and Automatic Abilities.
+        The AutomaticWeaponDefinition now includes base_glyph_slots, and the Survivor struct has auto_weapon_equipped_glyphs to manage glyphs for the equipped automatic weapon.
+        Two new generic glyph types were implemented:
+            "Glyph of Focused Intensity" (IncreaseBaseDamage): Affects the base damage of skills and automatic weapons.
+            "Glyph of Swift Execution" (IncreaseRate): Affects cooldowns of active skills and the fire rate of automatic weapons.
+        The survivor_skill_input_system and survivor_casting_system were updated to apply these glyph effects.
+        The debug menu (src/debug_menu.rs) was significantly updated to allow socketing glyphs into both active skill slots and the new automatic weapon glyph slots.
+
+    Bug Fixing & Refinements:
+        Throughout the session, we addressed numerous compiler errors (unresolved imports, lifetime issues, mismatched types, non-exhaustive patterns) and warnings (unused imports/variables), ensuring the codebase remained compilable.
+
+Overall, we've substantially advanced the core combat systems, particularly the automatic weapon system, and laid a strong foundation for the glyph system, while also expanding player abilities and items.

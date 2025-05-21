@@ -1,9 +1,10 @@
+// src/main.rs
 use bevy::prelude::*;
 
 mod survivor; 
 mod components;
 mod horror; 
-mod ichor_blast; 
+mod automatic_projectiles; // Changed from ichor_blast
 mod game;
 mod echoing_soul; 
 mod upgrades;
@@ -20,16 +21,16 @@ mod glyphs;
 
 use survivor::SurvivorPlugin; 
 use horror::HorrorPlugin; 
-use ichor_blast::IchorBlastPlugin; 
+use automatic_projectiles::AutomaticProjectilesPlugin; // Changed from IchorBlastPlugin
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
 use level_event_effects::LevelEventEffectsPlugin;
-use weapons::WeaponsPlugin; 
+use weapons::WeaponsPlugin;
 use visual_effects::VisualEffectsPlugin;
 use audio::GameAudioPlugin;
-use camera_systems::CameraSystemsPlugin; 
+use camera_systems::{CameraSystemsPlugin, MainCamera};
 use background::BackgroundPlugin;
 use skills::SkillsPlugin;
-use items::ItemsPlugin; 
+use items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponDefinition, AutomaticWeaponId};
 use glyphs::GlyphsPlugin;
 
 
@@ -44,11 +45,14 @@ fn main() {
             }),
             ..default()
         }))
+        .register_type::<AutomaticWeaponId>()      
+        .register_type::<AutomaticWeaponDefinition>() 
+        .register_type::<AutomaticWeaponLibrary>()
         .add_plugins((
             GamePlugin, 
             SurvivorPlugin, 
             HorrorPlugin, 
-            IchorBlastPlugin,
+            AutomaticProjectilesPlugin, // Changed
             LevelEventEffectsPlugin, 
             WeaponsPlugin, 
             VisualEffectsPlugin,
@@ -59,7 +63,6 @@ fn main() {
             ItemsPlugin, 
             GlyphsPlugin,
         ))
-        .register_type::<weapons::DoomPulseAura>() 
         .add_systems(Startup, setup_global_camera)
         .run();
 }
@@ -67,5 +70,5 @@ fn main() {
 fn setup_global_camera(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.transform.translation.z = 999.0; 
-    commands.spawn((camera_bundle, crate::camera_systems::MainCamera)); 
+    commands.spawn((camera_bundle, MainCamera));
 }
