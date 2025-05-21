@@ -1,0 +1,12 @@
+[package]
+name = "eldritch_hero"
+version = "0.1.0" # Or your actual project version
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.13" } # Removed features = ["dynamic_linking"]
+rand = "0.8"
+# No bevy_embedded_assets here, as per previous reversion
+
+[build-dependencies]
+# No bevy_embedded_assets here

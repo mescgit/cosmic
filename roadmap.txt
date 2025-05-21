@@ -1,0 +1,73 @@
+Eldritch Hero: Revised Roadmap
+
+Core Pillars (Unchanged):
+
+    Eldritch Horror Theme: All visuals, audio, enemies, items, and abilities will reflect a dark, cosmic horror aesthetic.
+    Item-Based Power (Binding of Isaac Inspired): Players will find and collect items that provide significant passive bonuses, trigger unique effects, or grant/alter abilities. Synergies between items and abilities will be key.
+    Differentiated Combat System:
+        Automatic Abilities (Weapon/Ring System): The primary source of consistent damage output for clearing most enemies, determined by equipped "Weapons" and "Rings." These are passive or automatic once equipped.
+        Active Skills (Manual Activation): A limited set of cooldown-based skills (e.g., 4-5 slots activated by 1,2,3,4/RMB) used for more impactful, situational, or burst damage, particularly against tougher foes or bosses.
+
+Phase 1: Thematic Transformation & Core Systems Foundation
+
+    Status: COMPLETE (from a code and systems perspective, art/sound assets pending user provision).
+        Thematic reskinning of code elements is done.
+        Initial active skill system (Eldritch Bolt, Mind Shatter) and item system (passives, on-hit/kill effects) are functional.
+        Upgrade system integrates improvements for these.
+
+Phase 2: Defining Combat Identity & Expanding Content
+
+    Goal: Solidify the dual-nature combat system (Automatic Abilities + Active Skills), expand the variety of player choices, and deepen enemy encounters.
+    Key Features:
+        Automatic Ability System (Weapon/Ring Focus - NEW PRIORITY):
+            Define "Weapon" and/or "Ring" item types that dictate the player's primary automatic attack(s) (e.g., current Ichor Blast becomes one type, add Fireball, Lightning options).
+            Player can equip one (or more, TBD) "Weapon/Ring" that provides this automatic ability.
+            Refactor existing survivor_casting_system to use the equipped "Weapon/Ring" for automatic attacks.
+            Integrate existing passive aura/orbiter weapons (WardingWhispersAura, MindLarvaSwarm) into this system, perhaps as special types of equippable items or item-granted effects.
+            Next: Implement 2-3 distinct automatic "Weapon/Ring" types.
+        Active Skill System Enhancements:
+            Continue adding unique Active Skills (target 4-5 total, activated by 1,2,3,4/RMB). Acquisition via drops.
+            Focus on skills being impactful and cooldown-based, less spammy.
+            Consider skills with varied targeting (ground-target, player-centered AoE) if desired later.
+            Next: Add 1-2 new Active Skills with distinct mechanics (e.g., a powerful single-target debuff, a defensive utility, or a simple channeled beam).
+        Glyph System Development (User-Guided):
+            Glyphs are acquired via level-up (already implemented foundationally) and potentially rare drops.
+            Decision Point: Determine if glyphs modify Active Skills, Automatic Abilities, or both. This will guide implementation.
+            Implement more glyph effects based on the above decision (e.g., ProjectileChain is partially in).
+            Develop a basic UI for viewing and socketing glyphs (once their role is clearer).
+            Next: Based on discussion, decide primary target for glyphs (Active/Automatic) and implement 1-2 more glyph types.
+        Deeper Item System & Synergies:
+            Expand "Relic" type items (passive stat boosts, conditional effects – on-hit, on-kill, etc.). Target 15-20+ unique Relics.
+            Ensure items can synergize with both Automatic Abilities (Weapons/Rings) and Active Skills.
+            Focus on creating potential for emergent gameplay through combinations.
+            Next: Add 3-5 new Relics with diverse conditional effects or stat combinations.
+        Enhanced Enemy Behaviors & Elites:
+            Refine AI for existing distinct enemy archetypes.
+            Expand elite enemy modifiers for more variety.
+            Next: Add 1-2 new elite modifiers or a new common enemy variation.
+
+Phase 3: Content Richness, Polish, and Long-Term Engagement
+
+    Goal: Make the game feel complete with abundant content, better feedback, and high replayability.
+    Key Features:
+        Dedicated Boss Encounters:
+            Unique boss enemies at significant wave/time milestones.
+            Bosses with multiple phases or distinct attack patterns.
+            Guaranteed high-value reward upon defeat (e.g., choice of rare Weapon/Ring, Relic, or potent Active Skill/Glyph).
+        Extensive Content Expansion:
+            Many more Active Skills, Weapon/Ring types, Relics, and Glyphs.
+            More Enemy Types and variations, including mini-bosses.
+            Potentially different "Floors" or "Realms" (different backgrounds, enemy sets).
+        Advanced UI/UX & Visual/Audio Polish:
+            Dedicated screens for viewing collected items, equipped abilities/skills/glyphs, and stats. (Glyph socketing UI from Phase 2 is a start).
+            Clearer visual feedback for all effects; more animations.
+            More diverse soundscape and adaptive music.
+            Option to obscure detailed info for a "discovery" feel, if decided later.
+        Meta-Progression (Optional, for Replayability):
+            Unlock new starting "Weapons/Rings," Active Skills, or character archetypes.
+            Unlock new items/glyphs to appear in subsequent runs.
+            Permanent global upgrades.
+        Lore & Atmosphere:
+            Item descriptions, ability names, and environmental details contribute to the eldritch horror theme.
+        "Cursed" Items/Trade-offs (Optional - Post-Core Game):
+            If desired after core gameplay is solid, introduce items/glyphs with powerful benefits and significant downsides.

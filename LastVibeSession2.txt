@@ -1,0 +1,49 @@
+feat: Complete Phase 1 of Eldritch Horror Transformation
+
+This commit includes the foundational changes for Phase 1 of the
+Eldritch Horror themed bullet heaven game.
+
+Key Features and Changes:
+
+1.  **Thematic Refactoring:**
+    *   Extensive renaming of structs, enums, functions, variables,
+        and UI text throughout the codebase to align with an
+        Eldritch Horror aesthetic (e.g., Player to Survivor,
+        Enemy to Horror, XP to Echoes).
+    *   File modules renamed (e.g., `player.rs` to `survivor.rs`).
+    *   All asset paths (sprites, audio) updated to point to
+        thematic placeholder names (e.g., `survivor_placeholder.png`,
+        `cyclopean_ruins_tile_placeholder.png`,
+        `ritual_cast_placeholder.ogg`).
+
+2.  **Basic Active Skill System:**
+    *   Implemented core data structures for skills (`SkillDefinition`,
+        `ActiveSkillInstance`).
+    *   Survivor starts with "Eldritch Bolt" (single target projectile).
+    *   "Mind Shatter" skill implemented as a multi-projectile short-range
+        cone attack.
+    *   Input system allows triggering of equipped skills.
+
+3.  **Basic Item System:**
+    *   Implemented core data structures for items (`ItemDefinition`,
+        `ItemEffect`).
+    *   Added several passive stat-boosting items (health, speed,
+        damage, etc.) and more complex effect-triggering items.
+    *   Horrors can drop items, and Survivors can collect them to
+        gain their effects.
+
+4.  **Upgrade System Integration:**
+    *   Level-up system now offers choices to:
+        *   Improve equipped active skills (damage, cooldown).
+        *   Gain re-themed passive stat boosts.
+        *   Rarely, acquire new items (relics) or basic skills.
+    *   `UpgradePool` updated with thematic and functional upgrades.
+
+5.  **Testing:**
+    *   Added basic unit tests for core logic in skills, items,
+        and upgrades, located in the `tests/` directory.
+
+This completes the planned work for Phase 1, establishing the
+new theme and core gameplay systems for items and active skills.
+The next phase will focus on expanding these systems with more
+content and features.

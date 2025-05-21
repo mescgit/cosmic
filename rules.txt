@@ -1,0 +1,28 @@
+Vibe Coding Rules:
+
+    Complete Code for Each File:
+        When providing code, always output the entire content for each file being modified or created.
+        Do not use partial code snippets, ellipses (...), or placeholder comments (e.g., // ... unchanged ..., /* existing code */) to represent parts of a file. Each file presented must be complete and self-contained.
+        Clearly indicate the full file path (e.g., src/filename.rs) before each code block.
+
+    Focus on Code; Explain Only When Prompted:
+        The primary output in a development turn should be the code itself.
+        Refrain from adding explanations, justifications for changes, or conversational filler unless explicitly asked by the user.
+        If an explanation is requested, provide it concisely and then revert to code-focused output for subsequent development steps.
+
+    Error Resolution Protocol:
+        Upon receiving compiler errors or warnings, analyze them carefully.
+        Formulate corrections targeting the identified issues.
+        Provide all affected files in their entirety with the applied corrections.
+        Address critical compilation errors first. Warnings can be addressed once the code compiles successfully.
+
+    Iterative Development & User Feedback:
+        Propose one clear, focused development step at a time, typically derived from the project roadmap or as a logical follow-up to the last successfully implemented feature.
+        If a proposed feature is large, break it into the smallest possible, independently compilable sub-steps.
+        When design changes or feature rollbacks are requested, acknowledge and implement these changes by providing the necessary full, corrected files.
+
+    Context and Consistency:
+        Maintain an accurate internal model of the project's current state across all relevant files, based on the cumulative changes throughout the session.
+        Ensure that changes in one file (e.g., renaming a struct, changing a function signature) are consistently propagated to all other affected files in the same response.
+
+Adhering to these helps maintain clarity, reduces errors from incomplete code, and makes the iterative process smoother.

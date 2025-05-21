@@ -1,0 +1,76 @@
+Summary of Our Vibe Coding Session So Far:
+
+We've focused on establishing the core systems and thematic elements outlined in Phase 1 of your roadmap, and have begun implementing several key features from Phase 2.
+
+Key Accomplishments:
+
+    Thematic Overhaul (Code-Side):
+        The game is now titled "Eldritch Hero."
+        The player's basic attack has been re-themed (e.g., Bullet to ThoughtFragment, BasicWeapon to MindAffliction).
+        Enemy types have been thematically renamed (e.g., LingeringDreg, GazingOrb, BulwarkOfFlesh, PhaseRipper, BroodTender, RuinousCharger, MindlessSpawn).
+        Passive weapon components (AoeAuraWeapon, OrbitingProjectileWeapon) were renamed to WardingWhispersAura and MindLarvaSwarm.
+        Many UpgradeCard names and descriptions, including those for weapon unlocks, have been updated to fit the eldritch horror theme.
+
+    Core Gameplay Systems Implemented/Enhanced:
+        Player System: Standard movement, aiming, health, and a leveling system through experience collection.
+        Active Skill System:
+            Players start with "Eldritch Bolt" and can learn up to four additional skills ("Mind Shatter," "Void Lance," "Fleeting Agility," "Glacial Nova," and "Psychic Sentry") through upgrades, using distinct input keys (RMB/1, 2, 3, E, R).
+            Skills have cooldowns and can be upgraded for increased damage, reduced cooldowns, and larger AoE radii.
+            Implemented a player buff skill ("Fleeting Agility") and a stationary AoE skill ("Psychic Sentry"). A freezing AoE skill ("Glacial Nova") that slows enemies is also in place.
+        Item System:
+            A library of items with passive stat boosts and unique conditional effects:
+                On-Hit: "Unstable Cortex" (chance for basic attacks to explode).
+                On-Player-Hit: "Shroud of Retribution" (chance for retaliatory nova).
+                On-Enemy-Kill: "Soul Siphon Shard" (chance for temporary health regen).
+            Items can grant new skills (e.g., "Tome of Forbidden Rites" grants Void Lance).
+            Items can be dropped by enemies or obtained as level-up rewards.
+        Enemy System:
+            A diverse roster of enemies with unique behaviors: LingeringDreg (basic), GazingOrb (ranged, repositions), BulwarkOfFlesh (tanky), PhaseRipper (teleporting), BroodTender (summons MindlessSpawn), and RuinousCharger (telegraphs and charges).
+            A basic "Elite" enemy system is in place, allowing stronger, more rewarding versions of some enemies to spawn.
+        Upgrade System: Players are offered a choice of three random upgrades upon leveling up, covering stat boosts, skill enhancements, new skills, and items.
+        Glyph System (Foundation):
+            Defined Glyph data structures, effects (ProjectileChain, IncreasedAoEDamage, AddedChaosDamageToProjectile), and a GlyphLibrary.
+            Skills now have defined base_glyph_slots.
+            ActiveSkillInstance tracks equipped_glyphs.
+            Players have a collected_glyphs inventory (populated via debug menu).
+            The AddedChaosDamageToProjectile and IncreasedAoEDamage glyph effects are functional when socketed (currently socketed via debug/hardcoding for testing).
+            A debug menu allows granting glyphs to the player and basic socketing.
+        Technical Backend: Includes UI for game state, menus (main, game over, level-up), debug capabilities, sound effect triggers, and visual damage numbers.
+
+Development Journey Insights:
+The process has been highly iterative. Debugging cycles involved identifying and fixing various Rust-specific issues like borrow checking conflicts, type resolution problems (often due to missing pub or incorrect use statements), trait bound errors for Bevy's reflection system, and general API usage errors. Strict adherence to providing full, tested (on my end, conceptually) code files has become crucial to minimize errors arising from incomplete snippets or placeholder comments.
+Game Roadmap Update:
+
+Here's where "Eldritch Hero Survival" stands in relation to your roadmap:
+
+Phase 1: Thematic Transformation & Core Systems Foundation
+
+    Status: COMPLETE (from a code and systems perspective).
+        Thematic reskinning of code elements is done. Art and sound assets are pending your provision.
+        Core item, active skill, and upgrade systems are in place and functional.
+
+Phase 2: Expanding Skills, Items, and Enemy Interactions
+
+    Status: SIGNIFICANT PROGRESS MADE.
+        Advanced Skill System & More Skills:
+            In Progress: 5 active skills implemented (target 5-7). Effects include projectile, AoE, player buff, and stationary sentry/nova.
+            Next: Consider a true "Summon" (mobile ally) or "Channeled" skill. More skills to reach the target count.
+        Skill Modification (Proto-"Support Gems"):
+            Partially Implemented: Glyphs are defined, skills have slots, player can collect/socket (via debug), and two basic glyph effects are functional.
+            Next: Implement more glyph effects like ProjectileChain. Develop a proper in-game UI for socketing glyphs. Integrate glyph acquisition more naturally into gameplay (e.g., drops, rewards).
+        Deeper Item System & Synergies:
+            In Progress: 9 unique items implemented (target 15-20+). Conditional effects (on-hit, on-take-damage, on-kill) and skill-granting items exist.
+            Next: Add more diverse items, focusing on creating interesting synergies between items and skills.
+        Enhanced Enemy Behaviors & New Enemy Types:
+            COMPLETE for the initially listed distinct enemy archetypes (repositioning ranged, teleporting, summoner, charger).
+            Next: Further refine existing AI, add more complex attack patterns, or consider variations for existing types.
+        Elite Enemies / Mini-Bosses:
+            [X] Basic Elite system in place.
+            Next: Expand elite modifiers. Design and implement distinct mini-bosses with unique mechanics (this bridges into Phase 3).
+
+Phase 3: Polishing & Endgame Content
+
+    Status: NOT STARTED.
+        This phase focuses on dedicated boss encounters, extensive content expansion (many more skills, items, glyphs, enemies, potentially different "floors/realms"), UI/UX polish, advanced visual/audio, meta-progression, and deepening lore/atmosphere.
+
+Overall, the game has a solid foundation and is well into developing the richer gameplay intended for Phase 2.
