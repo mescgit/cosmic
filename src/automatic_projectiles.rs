@@ -48,6 +48,8 @@ fn setup_lightning_particle_effects(
     mut effects: ResMut<Assets<EffectAsset>>,
     asset_server: Res<AssetServer>,
 ) {
+    let mut module = Module::default(); // Create module instance
+
     let mut color_gradient = Gradient::new();
     color_gradient.add_key(0.0, Vec4::new(0.8, 0.8, 1.0, 1.0));
     color_gradient.add_key(0.5, Vec4::new(0.5, 0.5, 1.0, 1.0));
@@ -58,44 +60,36 @@ fn setup_lightning_particle_effects(
     size_gradient.add_key(0.3, Vec2::splat(8.0));
     size_gradient.add_key(1.0, Vec2::splat(0.0));
 
-    let spawner = Spawner::once(10_f32.into(), true);
+    // Use module.lit() for Spawner count and .into() to convert to CountModifier
+    let spawner = Spawner::once(module.lit(10.0_f32).into(), true);
+
 
     let texture_handle: Handle<Image> = asset_server.load("sprites/scorch_mark.png");
 
     // EffectAsset for bevy_hanabi 0.11.0
-    let mut bolt_effect_asset = EffectAsset::new(
-        32, // max_particles: u32
-        spawner,
-        "lightning_bolt".into() // name: impl Into<Cow<'static, str>>
-    );
-
-    // Initializers - push Box::new(Modifier) into the public `initializers` field
-    bolt_effect_asset.initializers.push(Box::new(
-        SetPositionSphereModifier {
-            center: Value::from(Vec3::ZERO).into(), // Value<Vec3> into ExprHandle<Vec3>
-            radius: Value::from(2.0_f32).into(),    // Value<f32> into ExprHandle<f32>
-            dimension: ShapeDimension::Volume,
-        }
-    ));
-
-    bolt_effect_asset.initializers.push(Box::new(
-        SetVelocitySphereModifier {
-            center: Value::from(Vec3::ZERO).into(), // Value<Vec3> into ExprHandle<Vec3>
-            speed: Value::from(100.0_f32).into(),   // Value<f32> into ExprHandle<f32>
-        }
-    ));
-
-    bolt_effect_asset.initializers.push(Box::new(
-        SetAttributeModifier::new(Attribute::LIFETIME, Value::from(0.3_f32).into()) // Value<f32> into ExprHandle<f32>
-    ));
-
-    // Updaters - push Box::new(Modifier) into the public `updaters` field
-    bolt_effect_asset.updaters.push(Box::new(LinearDragModifier { drag: Value::from(5.0_f32).into() })); // Value<f32> into ExprHandle<f32>
-
-    // Render modifiers - use add_render_modifier(Box::new(Modifier))
-    bolt_effect_asset.add_render_modifier(Box::new(ColorOverLifetimeModifier { gradient: color_gradient }));
-    bolt_effect_asset.add_render_modifier(Box::new(SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false }));
-    bolt_effect_asset.add_render_modifier(Box::new(ParticleTextureModifier { texture: texture_handle.into(), ..default()}));
+    // module is populated by the .lit() calls in initializers and updaters
+    let bolt_effect_asset = EffectAsset::new(
+        vec![32], // capacities: Vec<u32>
+        spawner, // Spawner needs to be correctly defined
+        module // module: Module - pass populated module
+    )
+    .with_name("lightning_bolt") // Add name using .with_name()
+    // Chain .init() and .update() calls
+    .init(SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO), // Use module.lit()
+        radius: module.lit(2.0_f32),    // Use module.lit()
+        dimension: ShapeDimension::Volume, // Preserve original ShapeDimension
+    })
+    .init(SetVelocitySphereModifier {
+        center: module.lit(Vec3::ZERO), // Use module.lit()
+        speed: module.lit(100.0_f32),   // Use module.lit()
+    })
+    .init(SetAttributeModifier::new(Attribute::LIFETIME, module.lit(0.3_f32))) // Use module.lit()
+    .update(LinearDragModifier { drag: module.lit(5.0_f32) }) // Use module.lit()
+    // Render modifiers remain the same
+    .add_render_modifier(Box::new(ColorOverLifetimeModifier { gradient: color_gradient }))
+    .add_render_modifier(Box::new(SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false }))
+    .add_render_modifier(Box::new(ParticleTextureModifier { texture: texture_handle.into(), ..default()}));
 
     let bolt_effect_handle = effects.add(bolt_effect_asset);
     commands.insert_resource(LightningParticleEffects { bolt_effect: bolt_effect_handle });
