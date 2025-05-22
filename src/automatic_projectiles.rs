@@ -14,7 +14,6 @@ use crate::{
 pub const BASE_CHAIN_LIGHTNING_RANGE: f32 = 300.0;
 pub const CHAIN_LIGHTNING_DAMAGE_MULTIPLIER: f32 = 0.75;
 
-// --- Component Definitions (moved to the top & made public as needed) ---
 #[derive(Component)]
 pub struct AutomaticProjectile {
     pub piercing_left: u32,
@@ -39,17 +38,15 @@ pub struct ChainLightningStrikeEvent {
     pub chain_range_sq: f32,
 }
 
-// --- Particle Effect Handles Resource ---
 #[derive(Resource)]
 pub struct LightningParticleEffects {
     pub bolt_effect: Handle<EffectAsset>,
 }
 
-// --- System Function Definitions ---
 fn setup_lightning_particle_effects(
     mut commands: Commands,
     mut effects: ResMut<Assets<EffectAsset>>,
-    asset_server: Res<AssetServer>, 
+    asset_server: Res<AssetServer>,
 ) {
     let mut color_gradient = Gradient::new();
     color_gradient.add_key(0.0, Vec4::new(0.8, 0.8, 1.0, 1.0));
@@ -57,61 +54,48 @@ fn setup_lightning_particle_effects(
     color_gradient.add_key(1.0, Vec4::new(0.3, 0.3, 1.0, 0.0));
 
     let mut size_gradient = Gradient::new();
-    size_gradient.add_key(0.0, 6.0_f32);
-    size_gradient.add_key(0.3, 8.0_f32);
-    size_gradient.add_key(1.0, 0.0_f32);
-    
-    let spawner = Spawner::once(10_u32.into(), true);
+    size_gradient.add_key(0.0, Vec2::splat(6.0));
+    size_gradient.add_key(0.3, Vec2::splat(8.0));
+    size_gradient.add_key(1.0, Vec2::splat(0.0));
 
-    // For bevy_hanabi 0.11.0, EffectAsset::new takes capacities, spawner, module.
-    // The `module` is for the texture. If using default texture, Hanabi often handles it.
-    // Let's try creating a default Module if one isn't explicitly loaded.
-    // Or, explicitly load the default Hanabi texture if its path is known and works.
-    // A common approach is to load a texture and use ParticleTextureModifier.
-    let texture_handle: Handle<Image> = asset_server.load("sprites/scorch_mark.png"); // Replace with a small white dot/spark texture if available
-                                                                                    // If you don't have one, Hanabi might use a default white square.
+    let spawner = Spawner::once(10_f32.into(), true);
 
+    let texture_handle: Handle<Image> = asset_server.load("sprites/scorch_mark.png");
+
+    // EffectAsset for bevy_hanabi 0.11.0
     let mut bolt_effect_asset = EffectAsset::new(
-        vec![32], // capacities: Vec<u32>
+        32, // max_particles: u32
         spawner,
-        // For Hanabi 0.11, the Module here is for texture atlas.
-        // We typically add ParticleTextureModifier separately.
-        // So, we might use Module::default() or a specific texture module.
-        Module::default() // Using default module here. Add ParticleTextureModifier below if needed.
+        "lightning_bolt".into() // name: impl Into<Cow<'static, str>>
     );
-    bolt_effect_asset.set_name("lightning_bolt".into()); // Name is set via a method.
 
-    // Initializers
-    bolt_effect_asset.add_initializer(
-        SetPositionSphereModifier { // Corrected to Set*
-            center: Vec3::ZERO.into(), // .into() converts Vec3 to Value<Vec3>
-            radius: 2.0.into(),        // .into() converts f32 to Value<f32>
+    // Initializers - push Box::new(Modifier) into the public `initializers` field
+    bolt_effect_asset.initializers.push(Box::new(
+        SetPositionSphereModifier {
+            center: Value::from(Vec3::ZERO).into(), // Value<Vec3> into ExprHandle<Vec3>
+            radius: Value::from(2.0_f32).into(),    // Value<f32> into ExprHandle<f32>
             dimension: ShapeDimension::Volume,
-            ..Default::default()       // Use Default::default() for omitted fields
-        }.boxed()
-    );
+        }
+    ));
 
-    bolt_effect_asset.add_initializer(
-        SetVelocitySphereModifier { // Corrected to Set*
-            center: Vec3::ZERO.into(),
-            speed: 100.0.into(), 
-            ..Default::default()
-        }.boxed()
-    );
-    
-    bolt_effect_asset.add_initializer(
-        // For Hanabi 0.11, use SetAttributeModifier for lifetime
-        SetAttributeModifier::new(Attribute::LIFETIME, Value::Single(0.3)).boxed()
-    );
+    bolt_effect_asset.initializers.push(Box::new(
+        SetVelocitySphereModifier {
+            center: Value::from(Vec3::ZERO).into(), // Value<Vec3> into ExprHandle<Vec3>
+            speed: Value::from(100.0_f32).into(),   // Value<f32> into ExprHandle<f32>
+        }
+    ));
 
-    // Updaters
-    bolt_effect_asset.add_updater(LinearDragModifier { drag: 5.0.into() }.boxed());
+    bolt_effect_asset.initializers.push(Box::new(
+        SetAttributeModifier::new(Attribute::LIFETIME, Value::from(0.3_f32).into()) // Value<f32> into ExprHandle<f32>
+    ));
 
-    // Render modifiers
-    bolt_effect_asset.add_render_module(ColorOverLifetimeModifier { gradient: color_gradient }.boxed());
-    bolt_effect_asset.add_render_module(SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false }.boxed());
-    bolt_effect_asset.add_render_module(ParticleTextureModifier { texture: texture_handle.into(), ..default()}.boxed() );
+    // Updaters - push Box::new(Modifier) into the public `updaters` field
+    bolt_effect_asset.updaters.push(Box::new(LinearDragModifier { drag: Value::from(5.0_f32).into() })); // Value<f32> into ExprHandle<f32>
 
+    // Render modifiers - use add_render_modifier(Box::new(Modifier))
+    bolt_effect_asset.add_render_modifier(Box::new(ColorOverLifetimeModifier { gradient: color_gradient }));
+    bolt_effect_asset.add_render_modifier(Box::new(SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false }));
+    bolt_effect_asset.add_render_modifier(Box::new(ParticleTextureModifier { texture: texture_handle.into(), ..default()}));
 
     let bolt_effect_handle = effects.add(bolt_effect_asset);
     commands.insert_resource(LightningParticleEffects { bolt_effect: bolt_effect_handle });
@@ -131,7 +115,7 @@ pub fn spawn_automatic_projectile(
     size: Vec2,
     color: Color,
     lifetime_secs: f32,
-    particle_effects: Option<Res<LightningParticleEffects>>,
+    particle_effects: Option<&Res<LightningParticleEffects>>,
 ) {
     let mut projectile_entity_commands = commands.spawn_empty();
 
@@ -152,11 +136,11 @@ pub fn spawn_automatic_projectile(
     ));
 
     if weapon_id == AutomaticWeaponId(3) {
-        if let Some(effects) = particle_effects {
+        if let Some(effects_res) = particle_effects {
             projectile_entity_commands.with_children(|parent| {
-                parent.spawn(ParticleEffectBundle { // This is correct for Hanabi 0.11
-                    effect: ParticleEffect::new(effects.bolt_effect.clone()),
-                    transform: Transform::IDENTITY, 
+                parent.spawn(ParticleEffectBundle {
+                    effect: ParticleEffect::new(effects_res.bolt_effect.clone()),
+                    transform: Transform::IDENTITY,
                     ..Default::default()
                 });
             });
@@ -321,7 +305,7 @@ fn chain_lightning_strike_processor_system(
                     ChainLightningVisual { timer: Timer::from_seconds(0.15, TimerMode::Once) },
                     Name::new("ChainLightningSegment"),
                 ));
-                
+
                 sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit));
                 target_health.0 -= strike_data.damage;
                 spawn_damage_text(&mut commands, &asset_server, target_gtransform.translation(), strike_data.damage, &time);
@@ -358,7 +342,6 @@ fn chain_lightning_visual_despawn_system(
     }
 }
 
-// --- Plugin Definition ---
 pub struct AutomaticProjectilesPlugin;
 
 impl Plugin for AutomaticProjectilesPlugin {

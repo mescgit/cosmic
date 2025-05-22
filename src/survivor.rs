@@ -114,15 +114,12 @@ fn spawn_survivor(
 
     if let Some(weapon_def) = weapon_library.get_weapon_definition(default_weapon_id) {
         initial_fire_rate = weapon_def.base_fire_rate_secs;
+    } else if let Some(fallback_weapon_def) = weapon_library.get_weapon_definition(AutomaticWeaponId(0)) {
+        warn!("Default weapon ID 3 (Chain Lightning) not found, falling back to ID 0 (Primordial Ichor Blast). Ensure it's defined in items.rs.");
+        initial_fire_rate = fallback_weapon_def.base_fire_rate_secs;
     } else {
-        if let Some(weapon_def_fallback) = weapon_library.get_weapon_definition(AutomaticWeaponId(0)) {
-            initial_fire_rate = weapon_def_fallback.base_fire_rate_secs;
-             warn!("Default weapon ID 3 (Chain Lightning) not found, falling back to ID 0. Ensure it's defined in items.rs.");
-        } else {
-            warn!("Neither default weapon ID 3 nor fallback ID 0 found. Using hardcoded fire rate.");
-        }
+        warn!("Neither default weapon ID 3 nor fallback ID 0 found. Using hardcoded fire rate (0.8s).");
     }
-
 
     commands.spawn((
         SpriteBundle {
@@ -155,13 +152,16 @@ fn survivor_casting_system(
     mut query: Query<(&Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
-    particle_effects_res: Option<Res<LightningParticleEffects>>, // SystemParam for particle effects
+    particle_effects_res: Option<Res<LightningParticleEffects>>,
 ) {
     for (survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() {
-        let weapon_def = match survivor_stats.equipped_weapon_id {
-            Some(id) => weapon_library.get_weapon_definition(id),
-            None => return,
-        }.unwrap_or_else(|| weapon_library.get_weapon_definition(AutomaticWeaponId(3)).expect("Default weapon ID 3 (Chain Lightning) not found"));
+        let weapon_def_id = survivor_stats.equipped_weapon_id.unwrap_or(AutomaticWeaponId(3));
+        let weapon_def = weapon_library.get_weapon_definition(weapon_def_id)
+            .unwrap_or_else(|| {
+                warn!("Weapon ID {:?} not found, falling back to ID 0.", weapon_def_id);
+                weapon_library.get_weapon_definition(AutomaticWeaponId(0))
+                    .expect("Fallback weapon ID 0 (Primordial Ichor Blast) also not found! Ensure it is defined.")
+            });
 
         let mut effective_fire_rate_secs = sanity_strain.base_fire_rate_secs;
 
@@ -209,7 +209,7 @@ fn survivor_casting_system(
                         weapon_def.projectile_size,
                         weapon_def.projectile_color,
                         effective_projectile_lifetime_secs,
-                        particle_effects_res.clone(), // Pass the Option<Res<T>> by cloning it
+                        particle_effects_res.as_ref(),
                     );
                 }
             }
