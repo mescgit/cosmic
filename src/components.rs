@@ -9,13 +9,15 @@ pub struct Health(pub i32);
 #[derive(Component)]
 pub struct Damage(pub i32);
 
-#[derive(Component)]
-pub struct Cooldown { // Currently unused
-    pub timer: Timer,
-}
+// Cooldown component removed as it was unused and likely tied to removed skill/weapon systems.
+// #[derive(Component)]
+// pub struct Cooldown {
+//     pub timer: Timer,
+// }
 
-#[derive(Component)]
-pub struct Target(pub Option<Entity>); // Currently unused
+// Target component removed as it was unused and likely tied to removed skill/weapon/targeting systems.
+// #[derive(Component)]
+// pub struct Target(pub Option<Entity>);
 
 #[derive(Component)]
 pub struct Lifetime {

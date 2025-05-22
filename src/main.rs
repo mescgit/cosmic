@@ -4,34 +4,36 @@ use bevy::prelude::*;
 mod survivor;
 mod components;
 mod horror;
-mod automatic_projectiles; // Changed from ichor_blast
+// mod automatic_projectiles; // Removed
 mod game;
-mod echoing_soul;
-mod upgrades;
-mod level_event_effects;
-mod weapons;
+// mod echoing_soul; // Removed
+// mod upgrades; // Removed
+// mod level_event_effects; // Removed
+// mod weapons; // Removed
 mod visual_effects;
 mod audio;
 mod camera_systems;
 mod background;
-mod debug_menu;
-mod skills;
-mod items;
-// mod glyphs; // Commented out
+mod debug_menu; // Kept for now
+// mod skills; // Removed
+// mod items; // Removed
+// mod glyphs; // Removed
 
 use survivor::SurvivorPlugin;
-use horror::HorrorPlugin;
-use automatic_projectiles::AutomaticProjectilesPlugin; // Changed
+use horror::HorrorPlugin; // Kept
+// use automatic_projectiles::AutomaticProjectilesPlugin; // Removed
+// use level_event_effects::LevelEventEffectsPlugin; // Removed
+// use weapons::WeaponsPlugin; // Removed
+// use skills::SkillsPlugin; // Removed
+// use items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponDefinition, AutomaticWeaponId}; // Removed
+// use echoing_soul::EchoingSoulPlugin; // Removed
+// Ensure no glyphs related use statements are present
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
-use level_event_effects::LevelEventEffectsPlugin;
-use weapons::WeaponsPlugin;
 use visual_effects::VisualEffectsPlugin;
 use audio::GameAudioPlugin;
 use camera_systems::{CameraSystemsPlugin, MainCamera};
 use background::BackgroundPlugin;
-use skills::SkillsPlugin;
-use items::{ItemsPlugin, AutomaticWeaponLibrary, AutomaticWeaponDefinition, AutomaticWeaponId};
-// use glyphs::GlyphsPlugin; // Commented out
+// use debug_menu::DebugMenuPlugin; // Kept for now
 
 
 fn main() {
@@ -45,23 +47,23 @@ fn main() {
             }),
             ..default()
         }))
-        .register_type::<AutomaticWeaponId>()
-        .register_type::<AutomaticWeaponDefinition>()
-        .register_type::<AutomaticWeaponLibrary>()
+        // All .register_type calls for AutomaticWeaponId, AutomaticWeaponDefinition, AutomaticWeaponLibrary removed
         .add_plugins((
             GamePlugin,
             SurvivorPlugin,
-            HorrorPlugin,
-            AutomaticProjectilesPlugin, // Changed
-            LevelEventEffectsPlugin,
-            WeaponsPlugin,
+            HorrorPlugin, // Kept
+            // AutomaticProjectilesPlugin, // Removed
+            // LevelEventEffectsPlugin, // Removed
+            // WeaponsPlugin, // Removed
+            // SkillsPlugin, // Removed
+            // ItemsPlugin, // Removed
+            // EchoingSoulPlugin, // Removed
+            // GlyphsPlugin, // Removed
             VisualEffectsPlugin,
             GameAudioPlugin,
             CameraSystemsPlugin,
             BackgroundPlugin,
-            SkillsPlugin,
-            ItemsPlugin,
-            // GlyphsPlugin, // Commented out
+            // DebugMenuPlugin, // Kept for now
         ))
         .add_systems(Startup, setup_global_camera)
         .run();

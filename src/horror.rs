@@ -3,15 +3,13 @@ use bevy::prelude::*;
 use rand::{Rng, seq::SliceRandom};
 use std::time::Duration; 
 use crate::{
-    components::{Velocity, Health, Damage, Lifetime},
-    survivor::Survivor,
+    components::{Velocity, Health, Lifetime, Damage}, 
+    survivor::{Survivor, BasicPlayerProjectile, Damage as PlayerProjectileDamage},
     game::{AppState, GameState},
     audio::{PlaySoundEvent, SoundEffect},
-    items::{ItemDrop, ItemLibrary, ITEM_DROP_SIZE, ItemEffect, SurvivorTemporaryBuff, TemporaryHealthRegenBuff},
-    skills::ActiveShield, 
-    echoing_soul::{spawn_echoing_soul, ECHOING_SOUL_VALUE},
 };
 
+pub const BASIC_PLAYER_PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
 
 #[derive(Component, Debug)]
 pub struct Frozen { pub timer: Timer, pub speed_multiplier: f32, }
@@ -64,15 +62,17 @@ pub struct HorrorStats {
 }
 
 impl HorrorStats {
-    fn get_for_type(horror_type: HorrorType, cycle_multiplier: f32) -> Self { // Renamed wave_multiplier to cycle_multiplier
+    fn get_for_type(horror_type: HorrorType, cycle_multiplier: f32) -> Self {
+        // Removed ECHOING_SOUL_VALUE from xp_value calculations, replaced with arbitrary base values for score.
+        // These xp_values are now only for score.
         match horror_type {
-            HorrorType::SkitteringShadowling => HorrorStats { horror_type, health: (20.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 10, speed: 100.0 + 20.0 * (cycle_multiplier - 1.0).max(0.0), size: SKITTERING_SHADOWLIMG_SIZE, sprite_path: "sprites/skittering_shadowling_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE, item_drop_chance_override: Some(ITEM_DROP_CHANCE), },
-            HorrorType::FloatingEyeball => HorrorStats { horror_type, health: (15.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 5, speed: 70.0 + 15.0 * (cycle_multiplier - 1.0).max(0.0), size: FLOATING_EYEBALL_SIZE, sprite_path: "sprites/floating_eyeball_placeholder.png", projectile_range: Some(350.0), projectile_fire_rate: Some(2.8), projectile_speed: Some(280.0), projectile_damage: Some(10), xp_value: ECHOING_SOUL_VALUE + 5, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.02), },
-            HorrorType::AmorphousFleshbeast => HorrorStats { horror_type, health: (60.0 * cycle_multiplier * 1.5).max(1.0) as i32, damage_on_collision: 20, speed: 50.0 + 10.0 * (cycle_multiplier - 1.0).max(0.0), size: AMORPHOUS_FLESHBEAST_SIZE, sprite_path: "sprites/amorphous_fleshbeast_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE + 15, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.05), },
-            HorrorType::VoidBlinker => HorrorStats { horror_type, health: (30.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 15, speed: 110.0 + 20.0 * (cycle_multiplier - 1.0).max(0.0), size: VOID_BLINKER_SIZE, sprite_path: "sprites/void_blinker_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE + 10, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.03), },
-            HorrorType::FleshWeaver => HorrorStats { horror_type, health: (40.0 * cycle_multiplier * 1.2).max(1.0) as i32, damage_on_collision: 8, speed: 60.0 + 10.0 * (cycle_multiplier - 1.0).max(0.0), size: FLESH_WEAVER_SIZE, sprite_path: "sprites/flesh_weaver_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE + 20, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.07), },
-            HorrorType::CrawlingTorment => HorrorStats { horror_type, health: (5.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 5, speed: 120.0 + 10.0 * (cycle_multiplier - 1.0).max(0.0), size: CRAWLING_TORMENT_SIZE, sprite_path: "sprites/crawling_torment_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE / 5, item_drop_chance_override: Some(MINION_ITEM_DROP_CHANCE), },
-            HorrorType::FrenziedBehemoth => HorrorStats { horror_type, health: (70.0 * cycle_multiplier * 1.3).max(1.0) as i32, damage_on_collision: 25, speed: 80.0 + 15.0 * (cycle_multiplier - 1.0).max(0.0), size: FRENZIED_BEHEMOTH_SIZE, sprite_path: "sprites/frenzied_behemoth_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: ECHOING_SOUL_VALUE + 25, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.1), },
+            HorrorType::SkitteringShadowling => HorrorStats { horror_type, health: (20.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 10, speed: 100.0 + 20.0 * (cycle_multiplier - 1.0).max(0.0), size: SKITTERING_SHADOWLIMG_SIZE, sprite_path: "sprites/skittering_shadowling_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: 10, item_drop_chance_override: Some(ITEM_DROP_CHANCE), },
+            HorrorType::FloatingEyeball => HorrorStats { horror_type, health: (15.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 5, speed: 70.0 + 15.0 * (cycle_multiplier - 1.0).max(0.0), size: FLOATING_EYEBALL_SIZE, sprite_path: "sprites/floating_eyeball_placeholder.png", projectile_range: Some(350.0), projectile_fire_rate: Some(2.8), projectile_speed: Some(280.0), projectile_damage: Some(10), xp_value: 15, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.02), },
+            HorrorType::AmorphousFleshbeast => HorrorStats { horror_type, health: (60.0 * cycle_multiplier * 1.5).max(1.0) as i32, damage_on_collision: 20, speed: 50.0 + 10.0 * (cycle_multiplier - 1.0).max(0.0), size: AMORPHOUS_FLESHBEAST_SIZE, sprite_path: "sprites/amorphous_fleshbeast_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: 30, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.05), },
+            HorrorType::VoidBlinker => HorrorStats { horror_type, health: (30.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 15, speed: 110.0 + 20.0 * (cycle_multiplier - 1.0).max(0.0), size: VOID_BLINKER_SIZE, sprite_path: "sprites/void_blinker_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: 20, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.03), },
+            HorrorType::FleshWeaver => HorrorStats { horror_type, health: (40.0 * cycle_multiplier * 1.2).max(1.0) as i32, damage_on_collision: 8, speed: 60.0 + 10.0 * (cycle_multiplier - 1.0).max(0.0), size: FLESH_WEAVER_SIZE, sprite_path: "sprites/flesh_weaver_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: 25, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.07), },
+            HorrorType::CrawlingTorment => HorrorStats { horror_type, health: (5.0 * cycle_multiplier).max(1.0) as i32, damage_on_collision: 5, speed: 120.0 + 10.0 * (cycle_multiplier - 1.0).max(0.0), size: CRAWLING_TORMENT_SIZE, sprite_path: "sprites/crawling_torment_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: 5, item_drop_chance_override: Some(MINION_ITEM_DROP_CHANCE), },
+            HorrorType::FrenziedBehemoth => HorrorStats { horror_type, health: (70.0 * cycle_multiplier * 1.3).max(1.0) as i32, damage_on_collision: 25, speed: 80.0 + 15.0 * (cycle_multiplier - 1.0).max(0.0), size: FRENZIED_BEHEMOTH_SIZE, sprite_path: "sprites/frenzied_behemoth_placeholder.png", projectile_range: None, projectile_fire_rate: None, projectile_speed: None, projectile_damage: None, xp_value: 35, item_drop_chance_override: Some(ITEM_DROP_CHANCE + 0.1), },
         }
     }
 }
@@ -144,27 +144,26 @@ impl Plugin for HorrorPlugin {
                 flesh_weaver_ai_system,
                 frenzied_behemoth_ai_system,
                 horror_projectile_collision_system,
+                player_projectile_hit_horror_system.before(handle_horror_death_drops),
                 horror_projectile_lifetime_system,
                 handle_horror_death_drops,
             ).chain().run_if(in_state(AppState::InGame)))
             .add_systems(PostUpdate, update_horror_count_system_in_game_state.run_if(in_state(AppState::InGame)))
-            .add_systems(OnExit(AppState::InGame), (
-                despawn_all_horrors.run_if(should_despawn_all_entities_on_session_end),
-                despawn_all_item_drops.run_if(should_despawn_all_entities_on_session_end)
-            ));
+            .add_systems(OnExit(AppState::InGame), 
+                despawn_all_horrors.run_if(should_despawn_all_entities_on_session_end)
+                // despawn_all_item_drops system and its call removed
+            );
     }
 }
 
 pub fn despawn_all_horrors(mut commands: Commands, horror_query: Query<Entity, With<Horror>>) {
     for entity in horror_query.iter() { commands.entity(entity).despawn_recursive(); }
 }
-fn despawn_all_item_drops(mut commands: Commands, item_drop_query: Query<Entity, With<ItemDrop>>) {
-    for entity in item_drop_query.iter() { commands.entity(entity).despawn_recursive(); }
-}
+// fn despawn_all_item_drops function removed
 
 fn spawn_horror_type(
     commands: &mut Commands, asset_server: &Res<AssetServer>, horror_type: HorrorType,
-    position: Vec3, cycle_multiplier: f32, is_elite: bool, // Renamed wave_multiplier to cycle_multiplier
+    position: Vec3, cycle_multiplier: f32, is_elite: bool,
 ) {
     let base_stats = HorrorStats::get_for_type(horror_type, cycle_multiplier);
     let mut final_health = base_stats.health; let mut final_damage = base_stats.damage_on_collision;
@@ -286,11 +285,11 @@ fn frenzied_behemoth_ai_system(time: Res<Time>, mut charger_query: Query<(&Trans
 
 fn horror_projectile_collision_system(
     mut commands: Commands, 
-    projectile_query: Query<(Entity, &GlobalTransform, &Damage), With<HorrorProjectile>>, 
-    mut player_query: Query<(Entity, &GlobalTransform, &mut Health, &mut Survivor, Option<&mut ActiveShield>)>, 
+    projectile_query: Query<(Entity, &GlobalTransform, &Damage), With<HorrorProjectile>>,
+    mut player_query: Query<(&GlobalTransform, &mut Health, &mut Survivor)>, // ActiveShield query removed
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
 ) { 
-    if let Ok((player_entity, player_gtransform, mut player_health, mut player_component, mut opt_active_shield)) = player_query.get_single_mut() { 
+    if let Ok((player_gtransform, mut player_health, mut player_component)) = player_query.get_single_mut() { 
         for (projectile_entity, projectile_gtransform, projectile_damage) in projectile_query.iter() { 
             let distance = projectile_gtransform.translation().truncate().distance(player_gtransform.translation().truncate()); 
             let projectile_radius = HORROR_PROJECTILE_SPRITE_SIZE.x / 2.0; 
@@ -299,20 +298,9 @@ fn horror_projectile_collision_system(
             if distance < projectile_radius + player_radius { 
                 if player_component.invincibility_timer.finished() { 
                     sound_event_writer.send(PlaySoundEvent(SoundEffect::SurvivorHit));
-                    let mut damage_to_take = projectile_damage.0;
+                    let damage_to_take = projectile_damage.0;
 
-                    if let Some(ref mut shield) = opt_active_shield {
-                        if shield.amount > 0 {
-                            let damage_absorbed = damage_to_take.min(shield.amount);
-                            shield.amount -= damage_absorbed;
-                            damage_to_take -= damage_absorbed;
-
-                            if shield.amount <= 0 {
-                                commands.entity(player_entity).remove::<ActiveShield>();
-                            }
-                        }
-                    }
-
+                    // ActiveShield logic removed
                     if damage_to_take > 0 {
                         player_health.0 -= damage_to_take;
                     }
@@ -327,60 +315,47 @@ fn horror_projectile_lifetime_system(mut commands: Commands, time: Res<Time>, mu
 
 fn handle_horror_death_drops(
     mut commands: Commands, 
-    dead_horrors_query: Query<(Entity, &Transform, &Health, &Horror)>, 
-    asset_server: Res<AssetServer>, 
+    dead_horrors_query: Query<(Entity, &Health, &Horror)>, 
     mut game_state: ResMut<GameState>, 
-    item_library: Res<ItemLibrary>, 
     mut sound_event_writer: EventWriter<PlaySoundEvent>, 
-    player_query: Query<(Entity, &Survivor)>,
 ) {
-    let Ok((player_entity, player_data)) = player_query.get_single() else { return; };
-    let mut rng = rand::thread_rng();
-    for (entity, transform, health, horror_data) in dead_horrors_query.iter() {
+    for (entity, health, horror_data) in dead_horrors_query.iter() {
         if health.0 <= 0 {
             sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorDeath));
-            game_state.score += horror_data.xp_value / 2;
-            spawn_echoing_soul(&mut commands, &asset_server, transform.translation, horror_data.xp_value);
-            
-            if rng.gen_bool(horror_data.item_drop_chance) {
-                if !item_library.items.is_empty() {
-                    if let Some(item_to_drop_def) = item_library.items.choose(&mut rng) {
-                        commands.spawn((
-                            SpriteBundle {
-                                texture: asset_server.load("sprites/eldritch_relic_placeholder.png"),
-                                sprite: Sprite { custom_size: Some(ITEM_DROP_SIZE), ..default() },
-                                transform: Transform::from_translation(transform.translation.truncate().extend(0.4)),
-                                ..default()
-                            },
-                            ItemDrop { item_id: item_to_drop_def.id },
-                            Name::new(format!("ItemDrop_{}", item_to_drop_def.name)),
-                        ));
-                    } 
-                } 
-            } 
-
-            for item_id in player_data.collected_item_ids.iter() {
-                if let Some(item_def) = item_library.get_item_definition(*item_id) {
-                    for effect in &item_def.effects {
-                        if let ItemEffect::OnHorrorKillTrigger { chance, effect: kill_effect_type } = effect {
-                            if rng.gen_bool((*chance).into()) {
-                                match kill_effect_type {
-                                    SurvivorTemporaryBuff::HealthRegen { rate, duration_secs } => {
-                                        commands.entity(player_entity).insert(TemporaryHealthRegenBuff {
-                                            regen_per_second: *rate,
-                                            duration_timer: Timer::from_seconds(*duration_secs, TimerMode::Once),
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            game_state.score += horror_data.xp_value / 2; // xp_value is now just for score
             commands.entity(entity).despawn_recursive();
         }
     }
 }
+
+fn player_projectile_hit_horror_system(
+    mut commands: Commands,
+    player_projectile_query: Query<(Entity, &GlobalTransform, &PlayerProjectileDamage), With<BasicPlayerProjectile>>,
+    mut horror_query: Query<(&GlobalTransform, &mut Health, &Horror)>, // Added &Horror to get size
+    mut sound_event_writer: EventWriter<PlaySoundEvent>,
+) {
+    for (proj_entity, proj_gtransform, proj_damage) in player_projectile_query.iter() {
+        let proj_pos = proj_gtransform.translation().truncate();
+
+        for (horror_gtransform, mut horror_health, horror_data) in horror_query.iter_mut() {
+            let horror_pos = horror_gtransform.translation().truncate();
+            let distance = proj_pos.distance(horror_pos);
+
+            let projectile_radius = BASIC_PLAYER_PROJECTILE_SIZE.x / 2.0;
+            let horror_radius = horror_data.size.x / 2.0; // Use actual horror size
+
+            if distance < projectile_radius + horror_radius {
+                // info!("Player projectile hit horror! Damage: {}", proj_damage.0); // For debugging
+                horror_health.0 -= proj_damage.0;
+                sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); // Optional: Add SoundEffect::HorrorHit
+                commands.entity(proj_entity).despawn_recursive();
+                // Projectile only hits one horror and then despawns
+                break; 
+            }
+        }
+    }
+}
+
 
 fn update_horror_count_system_in_game_state(mut game_state: ResMut<crate::game::GameState>, horror_query: Query<(), With<Horror>>,) { 
     game_state.horror_count = horror_query.iter().count() as u32; 
