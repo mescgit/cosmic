@@ -1,28 +1,37 @@
-Vibe Coding Rules:
+**Vibe Coding Rules (Revised)**
 
-    Complete Code for Each File:
-        When providing code, always output the entire content for each file being modified or created.
-        Do not use partial code snippets, ellipses (...), or placeholder comments (e.g., // ... unchanged ..., /* existing code */) to represent parts of a file. Each file presented must be complete and self-contained.
-        Clearly indicate the full file path (e.g., src/filename.rs) before each code block.
+1. **Code Provision Strategy**
 
-    Focus on Code; Explain Only When Prompted:
-        The primary output in a development turn should be the code itself.
-        Refrain from adding explanations, justifications for changes, or conversational filler unless explicitly asked by the user.
-        If an explanation is requested, provide it concisely and then revert to code-focused output for subsequent development steps.
+   * **File Identification**: Always show the full file path (e.g., `src/main.rs`) immediately before any code block.
+   * **Full vs. Partial**:
 
-    Error Resolution Protocol:
-        Upon receiving compiler errors or warnings, analyze them carefully.
-        Formulate corrections targeting the identified issues.
-        Provide all affected files in their entirety with the applied corrections.
-        Address critical compilation errors first. Warnings can be addressed once the code compiles successfully.
+     * **Full File**: When you include an entire file content, label it as such.
+     * **Partial File**: If you provide only a snippet, you **must** list the exact line range (e.g., `// Insert between lines 42–57`) where this snippet belongs in the current version of the file.
+   * **No Ellipses or Inline Placeholders**: Do not use `...`, `/* existing code */`, or commented-out stubs to represent unchanged code. Use line ranges instead.
 
-    Iterative Development & User Feedback:
-        Propose one clear, focused development step at a time, typically derived from the project roadmap or as a logical follow-up to the last successfully implemented feature.
-        If a proposed feature is large, break it into the smallest possible, independently compilable sub-steps.
-        When design changes or feature rollbacks are requested, acknowledge and implement these changes by providing the necessary full, corrected files.
+2. **Focus on Code; Explanations Only on Demand**
 
-    Context and Consistency:
-        Maintain an accurate internal model of the project's current state across all relevant files, based on the cumulative changes throughout the session.
-        Ensure that changes in one file (e.g., renaming a struct, changing a function signature) are consistently propagated to all other affected files in the same response.
+   * **Primary Output**: The main response in a development-focused turn is the code itself.
+   * **Concise Explanations**: Provide explanations or justifications only if the user explicitly requests them. Keep any explanations brief, then return to the code-first format.
 
-Adhering to these helps maintain clarity, reduces errors from incomplete code, and makes the iterative process smoother.
+3. **Error Resolution Protocol**
+
+   * **Analyze & Fix**: On compiler errors or runtime issues, diagnose the root cause.
+   * **Affected Files**:
+     * **Full-Fix**: If a file’s structure is heavily impacted, provide the complete updated file.
+     * **Targeted-Fix**: If only specific sections change, show snippets with their corresponding line ranges in each affected file.
+   * **Priority**: Address critical compilation errors first. Once the code compiles, warnings can be handled in a follow‑up step.
+
+4. **Iterative Development & User Feedback**
+
+   * **Single Focus**: Tackle one development step or feature at a time, aligned with the project roadmap or last successful build.
+   * **Small, Independent Steps**: Break large features into the smallest independently testable sub‑steps.
+   * **Change Requests**: For design tweaks or rollbacks, acknowledge the request, then apply updates using the above full/partial guidelines.
+
+5. **Context & Consistency**
+
+   * **Internal State Tracking**: Maintain an accurate mental model of the current codebase across all files.
+   * **Consistent Propagation**: When renaming functions, structs, or modifying signatures, ensure every reference in other files is updated appropriately. Use line ranges or full file dumps to show all changes.
+   * **Line Range Accuracy**: When specifying line numbers, they should reflect the latest file contents as of your last response.
+
+*Adhering to these rules ensures clear, precise code delivery and smooth, error‑free iterations.*
