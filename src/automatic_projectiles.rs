@@ -50,6 +50,7 @@ fn setup_lightning_particle_effects(
 ) {
     let mut module = Module::default(); // Create module instance
 
+    // Define gradients
     let mut color_gradient = Gradient::new();
     color_gradient.add_key(0.0, Vec4::new(0.8, 0.8, 1.0, 1.0));
     color_gradient.add_key(0.5, Vec4::new(0.5, 0.5, 1.0, 1.0));
@@ -60,33 +61,40 @@ fn setup_lightning_particle_effects(
     size_gradient.add_key(0.3, Vec2::splat(8.0));
     size_gradient.add_key(1.0, Vec2::splat(0.0));
 
-    // Use module.lit() for Spawner count and .into() to convert to CountModifier
-    let spawner = Spawner::once(module.lit(10.0_f32).into(), true);
+    // Define modifiers that use `module.lit()` BEFORE module is moved
+    let pos_modifier = SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO),
+        radius: module.lit(2.0_f32),
+        dimension: ShapeDimension::Volume,
+    };
+    let vel_modifier = SetVelocitySphereModifier {
+        center: module.lit(Vec3::ZERO),
+        speed: module.lit(100.0_f32),
+    };
+    let lifetime_modifier = SetAttributeModifier::new(Attribute::LIFETIME, module.lit(0.3_f32));
+    let color_modifier = SetAttributeModifier::new(Attribute::COLOR, module.lit(Vec4::ONE));
+    let size_modifier = SetAttributeModifier::new(Attribute::SIZE, module.lit(Vec2::splat(1.0)));
+    let drag_modifier = LinearDragModifier { drag: module.lit(5.0_f32) };
 
+    // Spawner::once expects a CpuValue<f32>, created via .into() from f32 literal
+    let spawner = Spawner::once(10.0_f32.into(), true);
 
     let texture_handle: Handle<Image> = asset_server.load("sprites/scorch_mark.png");
 
-    // EffectAsset for bevy_hanabi 0.11.0
-    // module is populated by the .lit() calls in initializers and updaters
+    // Create EffectAsset, moving module here
     let bolt_effect_asset = EffectAsset::new(
-        vec![32], // capacities: Vec<u32>
-        spawner, // Spawner needs to be correctly defined
-        module // module: Module - pass populated module
+        vec![32], // capacities
+        spawner,   // spawner
+        module     // module is moved here
     )
-    .with_name("lightning_bolt") // Add name using .with_name()
-    // Chain .init() and .update() calls
-    .init(SetPositionSphereModifier {
-        center: module.lit(Vec3::ZERO), // Use module.lit()
-        radius: module.lit(2.0_f32),    // Use module.lit()
-        dimension: ShapeDimension::Volume, // Preserve original ShapeDimension
-    })
-    .init(SetVelocitySphereModifier {
-        center: module.lit(Vec3::ZERO), // Use module.lit()
-        speed: module.lit(100.0_f32),   // Use module.lit()
-    })
-    .init(SetAttributeModifier::new(Attribute::LIFETIME, module.lit(0.3_f32))) // Use module.lit()
-    .update(LinearDragModifier { drag: module.lit(5.0_f32) }) // Use module.lit()
-    // Render modifiers remain the same
+    .with_name("lightning_bolt")
+    .init(pos_modifier) // Pass the pre-defined modifier instance
+    .init(vel_modifier)
+    .init(lifetime_modifier)
+    .init(color_modifier)
+    .init(size_modifier)
+    .update(drag_modifier)
+    // Render modifiers can be added after, as they don't use the `module` in the same way
     .add_render_modifier(Box::new(ColorOverLifetimeModifier { gradient: color_gradient }))
     .add_render_modifier(Box::new(SizeOverLifetimeModifier { gradient: size_gradient, screen_space_size: false }))
     .add_render_modifier(Box::new(ParticleTextureModifier { texture: texture_handle.into(), ..default()}));
@@ -125,6 +133,7 @@ pub fn spawn_automatic_projectile(
         Damage(damage),
         Lifetime { timer: Timer::from_seconds(lifetime_secs, TimerMode::Once) },
         Name::new(format!("AutoProj_{:?}", weapon_id)),
+        VisibilityBundle::default(), // Added to fix B0004 warning
         GlobalTransform::default(),
         Transform::from_translation(position).with_rotation(Quat::from_rotation_z(direction.y.atan2(direction.x))),
     ));
