@@ -72,7 +72,7 @@ fn setup_lightning_particle_effects(
         speed: module.lit(100.0_f32),
     };
     let lifetime_modifier = SetAttributeModifier::new(Attribute::LIFETIME, module.lit(0.3_f32));
-    let color_modifier = SetAttributeModifier::new(Attribute::COLOR, module.lit(Vec4::ONE));
+    let color_modifier = SetAttributeModifier::new(Attribute::COLOR, module.lit(Color::WHITE.as_rgba_u32()));
     let size_modifier = SetAttributeModifier::new(Attribute::SIZE, module.lit(Vec2::splat(1.0)));
     let drag_modifier = LinearDragModifier { drag: module.lit(5.0_f32) };
 
