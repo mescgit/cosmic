@@ -4,8 +4,9 @@ version = "0.1.0" # Or your actual project version
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.13" } # Removed features = ["dynamic_linking"]
+bevy = { version = "0.13" }
 rand = "0.8"
+bevy_hanabi = "0.11.0" # Corrected version for Bevy 0.13
 # No bevy_embedded_assets here, as per previous reversion
 
 [build-dependencies]

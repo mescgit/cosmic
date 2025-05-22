@@ -5,13 +5,12 @@ use rand::Rng;
 use crate::{
     components::{Velocity, Health as ComponentHealth},
     game::{AppState, ItemCollectedEvent},
-    automatic_projectiles::{spawn_automatic_projectile},
+    automatic_projectiles::{spawn_automatic_projectile, LightningParticleEffects},
     horror::Horror,
     weapons::{CircleOfWarding, SwarmOfNightmares},
     audio::{PlaySoundEvent, SoundEffect},
     skills::{ActiveSkillInstance, SkillLibrary, SkillId, SurvivorBuffEffect, ActiveShield},
     items::{ItemId, ItemDrop, ItemLibrary, ItemEffect, RetaliationNovaEffect, AutomaticWeaponId, AutomaticWeaponLibrary},
-    // glyphs::{GlyphId, GlyphLibrary, GlyphEffectType}, // Commented out
 };
 
 pub const SURVIVOR_SIZE: Vec2 = Vec2::new(50.0, 50.0);
@@ -21,6 +20,7 @@ const PROJECTILE_SPREAD_ANGLE_DEGREES: f32 = 10.0;
 pub const INITIAL_SURVIVOR_MAX_HEALTH: i32 = 100;
 const BASE_SURVIVOR_SPEED: f32 = 250.0;
 const ITEM_COLLECTION_RADIUS: f32 = SURVIVOR_SIZE.x / 2.0 + crate::items::ITEM_DROP_SIZE.x / 2.0;
+pub const MAX_ACTIVE_SKILLS: usize = 5;
 
 #[derive(Component)] pub struct SanityStrain { pub base_fire_rate_secs: f32, pub fire_timer: Timer, }
 
@@ -34,14 +34,14 @@ pub struct Survivor {
     pub auto_weapon_projectile_speed_multiplier: f32,
     pub auto_weapon_piercing_bonus: u32,
     pub auto_weapon_additional_projectiles_bonus: u32,
+    pub auto_weapon_chain_bonus: u32,
+    pub auto_weapon_chain_range_multiplier: f32,
 
     pub xp_gain_multiplier: f32, pub pickup_radius_multiplier: f32,
     pub max_health: i32, pub health_regen_rate: f32,
     pub equipped_skills: Vec<ActiveSkillInstance>,
     pub collected_item_ids: Vec<ItemId>,
-    // pub collected_glyphs: Vec<GlyphId>, // Commented out
     pub equipped_weapon_id: Option<AutomaticWeaponId>,
-    // pub auto_weapon_equipped_glyphs: Vec<Option<GlyphId>>, // Commented out
 }
 
 impl Survivor {
@@ -53,15 +53,8 @@ impl Survivor {
         initial_skills: Vec<ActiveSkillInstance>,
         initial_items: Vec<ItemId>,
         initial_weapon_id: Option<AutomaticWeaponId>,
-        weapon_library: &Res<AutomaticWeaponLibrary>,
+        _weapon_library: &Res<AutomaticWeaponLibrary>,
     ) -> Self {
-        // let mut initial_auto_weapon_glyphs = Vec::new(); // Commented out
-        // if let Some(w_id) = initial_weapon_id { // Commented out
-        //     if let Some(w_def) = weapon_library.get_weapon_definition(w_id) { // Commented out
-        //         // initial_auto_weapon_glyphs = vec![None; w_def.base_glyph_slots as usize]; // Commented out
-        //     }
-        // }
-
         Self {
             speed: BASE_SURVIVOR_SPEED,
             experience: 0, current_level_xp: 0, level: 1,
@@ -71,15 +64,15 @@ impl Survivor {
             auto_weapon_projectile_speed_multiplier: 1.0,
             auto_weapon_piercing_bonus: 0,
             auto_weapon_additional_projectiles_bonus: 0,
+            auto_weapon_chain_bonus: 0,
+            auto_weapon_chain_range_multiplier: 1.0,
             xp_gain_multiplier: 1.0,
             pickup_radius_multiplier: 1.0,
             max_health: INITIAL_SURVIVOR_MAX_HEALTH,
             health_regen_rate: 0.0,
             equipped_skills: initial_skills,
             collected_item_ids: initial_items,
-            // collected_glyphs: Vec::new(), // Commented out
             equipped_weapon_id: initial_weapon_id,
-            // auto_weapon_equipped_glyphs: initial_auto_weapon_glyphs, // Commented out
         }
     }
 }
@@ -111,18 +104,25 @@ fn spawn_survivor(
     weapon_library: Res<AutomaticWeaponLibrary>,
 ) {
     let mut initial_skills = Vec::new();
-    if let Some(skill_def_bolt) = skill_library.get_skill_definition(SkillId(1)) {
-        // let bolt_instance = ActiveSkillInstance::new(SkillId(1), skill_def_bolt.base_glyph_slots); // Original
-        let bolt_instance = ActiveSkillInstance::new(SkillId(1) /*, skill_def_bolt.base_glyph_slots // Commented out glyph slots */);
+    if let Some(_skill_def_bolt) = skill_library.get_skill_definition(SkillId(1)) {
+        let bolt_instance = ActiveSkillInstance::new(SkillId(1));
         initial_skills.push(bolt_instance);
     }
 
-    let default_weapon_id = AutomaticWeaponId(0);
-    let mut initial_fire_rate = 0.5;
+    let default_weapon_id = AutomaticWeaponId(3);
+    let mut initial_fire_rate = 0.8;
 
     if let Some(weapon_def) = weapon_library.get_weapon_definition(default_weapon_id) {
         initial_fire_rate = weapon_def.base_fire_rate_secs;
+    } else {
+        if let Some(weapon_def_fallback) = weapon_library.get_weapon_definition(AutomaticWeaponId(0)) {
+            initial_fire_rate = weapon_def_fallback.base_fire_rate_secs;
+             warn!("Default weapon ID 3 (Chain Lightning) not found, falling back to ID 0. Ensure it's defined in items.rs.");
+        } else {
+            warn!("Neither default weapon ID 3 nor fallback ID 0 found. Using hardcoded fire rate.");
+        }
     }
+
 
     commands.spawn((
         SpriteBundle {
@@ -155,30 +155,15 @@ fn survivor_casting_system(
     mut query: Query<(&Transform, &Survivor, &mut SanityStrain, Option<&SurvivorBuffEffect>)>,
     mut sound_event_writer: EventWriter<PlaySoundEvent>,
     weapon_library: Res<AutomaticWeaponLibrary>,
-    // glyph_library: Res<GlyphLibrary>, // Commented out
+    particle_effects_res: Option<Res<LightningParticleEffects>>, // SystemParam for particle effects
 ) {
     for (survivor_transform, survivor_stats, mut sanity_strain, buff_effect_opt) in query.iter_mut() {
         let weapon_def = match survivor_stats.equipped_weapon_id {
             Some(id) => weapon_library.get_weapon_definition(id),
             None => return,
-        }.unwrap_or_else(|| weapon_library.get_weapon_definition(AutomaticWeaponId(0)).expect("Default weapon ID 0 not found"));
+        }.unwrap_or_else(|| weapon_library.get_weapon_definition(AutomaticWeaponId(3)).expect("Default weapon ID 3 (Chain Lightning) not found"));
 
         let mut effective_fire_rate_secs = sanity_strain.base_fire_rate_secs;
-
-        // --- Commented out Glyph Logic ---
-        // for glyph_opt in survivor_stats.auto_weapon_equipped_glyphs.iter() {
-        //     if let Some(glyph_id) = glyph_opt {
-        //         if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) {
-        //             match &glyph_def.effect {
-        //                 GlyphEffectType::IncreaseRate { percent_boost } => {
-        //                     effective_fire_rate_secs /= 1.0 + percent_boost;
-        //                 }
-        //                 _ => {}
-        //             }
-        //         }
-        //     }
-        // }
-        // --- End Commented out Glyph Logic ---
 
         if let Some(buff) = buff_effect_opt {
             effective_fire_rate_secs /= 1.0 + buff.fire_rate_multiplier_bonus;
@@ -194,29 +179,11 @@ fn survivor_casting_system(
             if survivor_stats.aim_direction != Vec2::ZERO {
                 sound_event_writer.send(PlaySoundEvent(SoundEffect::RitualCast));
 
-                let mut current_damage = weapon_def.base_damage + survivor_stats.auto_weapon_damage_bonus;
-                let mut effective_projectile_lifetime_secs = weapon_def.projectile_lifetime_secs;
-
-                // --- Commented out Glyph Logic ---
-                // for glyph_opt in survivor_stats.auto_weapon_equipped_glyphs.iter() {
-                //     if let Some(glyph_id) = glyph_opt {
-                //         if let Some(glyph_def) = glyph_library.get_glyph_definition(*glyph_id) {
-                //             match &glyph_def.effect {
-                //                 GlyphEffectType::IncreaseBaseDamage { amount } => {
-                //                     current_damage += *amount;
-                //                 }
-                //                 GlyphEffectType::IncreaseEffectScale { percent_boost } => {
-                //                     effective_projectile_lifetime_secs *= 1.0 + percent_boost;
-                //                 }
-                //                 _ => {}
-                //             }
-                //         }
-                //     }
-                // }
-                // --- End Commented out Glyph Logic ---
-
+                let current_damage = weapon_def.base_damage + survivor_stats.auto_weapon_damage_bonus;
+                let effective_projectile_lifetime_secs = weapon_def.projectile_lifetime_secs;
                 let current_speed = weapon_def.base_projectile_speed * survivor_stats.auto_weapon_projectile_speed_multiplier;
                 let current_piercing = weapon_def.base_piercing + survivor_stats.auto_weapon_piercing_bonus;
+                let current_chains = weapon_def.base_chains + survivor_stats.auto_weapon_chain_bonus;
                 let total_fragments = 1 + weapon_def.additional_projectiles + survivor_stats.auto_weapon_additional_projectiles_bonus;
 
                 let base_angle = survivor_stats.aim_direction.to_angle();
@@ -236,11 +203,13 @@ fn survivor_casting_system(
                         current_damage,
                         current_speed,
                         current_piercing,
+                        current_chains,
                         weapon_def.id,
                         weapon_def.projectile_sprite_path,
                         weapon_def.projectile_size,
                         weapon_def.projectile_color,
                         effective_projectile_lifetime_secs,
+                        particle_effects_res.clone(), // Pass the Option<Res<T>> by cloning it
                     );
                 }
             }

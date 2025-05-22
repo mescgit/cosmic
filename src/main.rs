@@ -1,10 +1,11 @@
 // src/main.rs
 use bevy::prelude::*;
+use bevy_hanabi::HanabiPlugin; // Import HanabiPlugin
 
 mod survivor;
 mod components;
 mod horror;
-mod automatic_projectiles; // Changed from ichor_blast
+mod automatic_projectiles; 
 mod game;
 mod echoing_soul;
 mod upgrades;
@@ -21,7 +22,7 @@ mod items;
 
 use survivor::SurvivorPlugin;
 use horror::HorrorPlugin;
-use automatic_projectiles::AutomaticProjectilesPlugin; // Changed
+use automatic_projectiles::AutomaticProjectilesPlugin; 
 use game::{GamePlugin, SCREEN_WIDTH, SCREEN_HEIGHT};
 use level_event_effects::LevelEventEffectsPlugin;
 use weapons::WeaponsPlugin;
@@ -38,7 +39,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Echoes of the Abyss".into(),
+                title: "Eldritch Hero".into(), // Updated game title
                 resolution: (SCREEN_WIDTH, SCREEN_HEIGHT).into(),
                 resizable: false,
                 ..default()
@@ -52,7 +53,7 @@ fn main() {
             GamePlugin,
             SurvivorPlugin,
             HorrorPlugin,
-            AutomaticProjectilesPlugin, // Changed
+            AutomaticProjectilesPlugin, 
             LevelEventEffectsPlugin,
             WeaponsPlugin,
             VisualEffectsPlugin,
@@ -62,6 +63,7 @@ fn main() {
             SkillsPlugin,
             ItemsPlugin,
             // GlyphsPlugin, // Commented out
+            HanabiPlugin, // Add the HanabiPlugin here
         ))
         .add_systems(Startup, setup_global_camera)
         .run();
@@ -69,6 +71,9 @@ fn main() {
 
 fn setup_global_camera(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.transform.translation.z = 999.0;
+    // Ensure our 2D camera is suitable for 2D particle effects if bevy_hanabi requires specific camera setup.
+    // For now, the default 2D camera should be okay.
+    // Hanabi examples often show use with both 2D and 3D cameras.
+    camera_bundle.transform.translation.z = 999.0; // Keep UI and other elements visible
     commands.spawn((camera_bundle, MainCamera));
 }

@@ -9,10 +9,6 @@ use crate::{
     audio::{PlaySoundEvent, SoundEffect},
     skills::{SkillId, SkillLibrary, ActiveSkillInstance},
     weapons::{CircleOfWarding, SwarmOfNightmares},
-    // glyphs::GlyphId, // Commented out if no longer used by Survivor,
-                       // but survivor.rs still has commented out collected_glyphs.
-                       // For now, let's assume it might be re-enabled or used elsewhere indirectly.
-                       // If it causes an unused import warning later, we'll remove it.
 };
 
 // --- Standard Items (Relics) ---
@@ -27,7 +23,7 @@ pub enum ItemEffect {
     PassiveStatBoost {
         max_health_increase: Option<i32>,
         speed_multiplier: Option<f32>,
-        damage_increase: Option<i32>,
+        damage_increase: Option<i32>, // Note: This currently buffs auto_weapon_damage_bonus
         xp_gain_multiplier: Option<f32>,
         pickup_radius_increase: Option<f32>,
         auto_weapon_projectile_speed_multiplier_increase: Option<f32>,
@@ -70,12 +66,12 @@ pub struct AutomaticWeaponDefinition {
     pub base_projectile_speed: f32,
     pub base_piercing: u32,
     pub additional_projectiles: u32,
+    pub base_chains: u32, // New field for chain lightning
 
     pub projectile_sprite_path: &'static str,
     pub projectile_size: Vec2,
     pub projectile_color: Color,
     pub projectile_lifetime_secs: f32,
-    // pub base_glyph_slots: u8, // Commented out
 }
 
 #[derive(Resource, Default, Reflect)]
@@ -113,11 +109,11 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_projectile_speed: 600.0,
         base_piercing: 0,
         additional_projectiles: 0,
+        base_chains: 0, // Standard projectile
         projectile_sprite_path: "sprites/ichor_blast_placeholder.png",
         projectile_size: Vec2::new(10.0, 10.0),
         projectile_color: Color::rgb(0.7, 0.5, 1.0),
         projectile_lifetime_secs: 2.0,
-        // base_glyph_slots: 2, // Commented out
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
@@ -128,11 +124,11 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_projectile_speed: 550.0,
         base_piercing: 0,
         additional_projectiles: 0,
+        base_chains: 0, // Standard projectile
         projectile_sprite_path: "sprites/eldritch_gatling_projectile_placeholder.png",
         projectile_size: Vec2::new(8.0, 16.0),
         projectile_color: Color::rgb(0.3, 0.9, 0.4),
         projectile_lifetime_secs: 1.5,
-        // base_glyph_slots: 3, // Commented out
     });
 
     library.weapons.push(AutomaticWeaponDefinition {
@@ -143,11 +139,28 @@ fn populate_automatic_weapon_library(mut library: ResMut<AutomaticWeaponLibrary>
         base_projectile_speed: 450.0,
         base_piercing: 1,
         additional_projectiles: 0,
+        base_chains: 0, // Standard projectile, but with pierce
         projectile_sprite_path: "sprites/void_cannon_projectile_placeholder.png",
         projectile_size: Vec2::new(18.0, 18.0),
         projectile_color: Color::rgb(0.4, 0.1, 0.7),
         projectile_lifetime_secs: 2.5,
-        // base_glyph_slots: 1, // Commented out
+    });
+
+    library.weapons.push(AutomaticWeaponDefinition {
+        id: AutomaticWeaponId(3), // New ID
+        name: "Chain Lightning".to_string(),
+        base_damage: 12, // Damage per hit in the chain
+        base_fire_rate_secs: 0.8, // Slower fire rate for a more impactful chain
+        base_projectile_speed: 1200.0, // Can be very fast or even "instant" visually later
+        base_piercing: 0, // Lightning doesn't typically pierce, it chains
+        additional_projectiles: 0, // Single bolt that chains
+        base_chains: 1, // Starts by jumping to 1 other enemy
+        projectile_sprite_path: "sprites/chain_lightning_bolt_placeholder.png", // New sprite
+        projectile_size: Vec2::new(12.0, 24.0), // Placeholder size
+        projectile_color: Color::rgb(0.8, 0.8, 1.0), // Lightning blue/white
+        projectile_lifetime_secs: 0.5, // Short lifetime for the initial bolt if it doesn't chain
+                                        // Or, if it chains, this lifetime might apply to the last segment.
+                                        // We might handle chain segment lifetime differently.
     });
 }
 
@@ -176,12 +189,9 @@ fn apply_collected_item_effects_system(
         for event in events.read() {
             let item_id = event.0;
             let is_new_item = !player.collected_item_ids.contains(&item_id);
-            if is_new_item {
-                // player.collected_item_ids.push(item_id); // This will be pushed after processing effects for safety
-            }
-
+            
             if let Some(item_def) = item_library.get_item_definition(item_id) {
-                let mut applied_successfully = true; // Flag to check if this item should be marked as collected
+                let mut applied_successfully = true; 
                 for effect in &item_def.effects {
                     match effect {
                         ItemEffect::PassiveStatBoost {
@@ -192,7 +202,7 @@ fn apply_collected_item_effects_system(
                             pickup_radius_increase,
                             auto_weapon_projectile_speed_multiplier_increase
                         } => {
-                            if is_new_item {
+                            if is_new_item { // Only apply passive boosts once
                                 if let Some(hp_boost) = max_health_increase { player.max_health += *hp_boost; if let Some(ref mut health_comp) = opt_health_component { health_comp.0 += *hp_boost; health_comp.0 = health_comp.0.min(player.max_health); } }
                                 if let Some(speed_mult) = speed_multiplier { player.speed *= *speed_mult; }
                                 if let Some(dmg_inc) = damage_increase { player.auto_weapon_damage_bonus += *dmg_inc; }
@@ -203,42 +213,43 @@ fn apply_collected_item_effects_system(
                         }
                         ItemEffect::GrantSpecificSkill { skill_id } => {
                             if is_new_item {
-                                if let Some(skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
+                                if let Some(_skill_to_grant_def) = skill_library.get_skill_definition(*skill_id) {
                                     let already_has_skill = player.equipped_skills.iter().any(|s| s.definition_id == *skill_id);
-                                    if !already_has_skill { if player.equipped_skills.len() < 5 { // Assuming max 5 skills
-                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id /*, skill_to_grant_def.base_glyph_slots // Commented out */));
-                                    } else { applied_successfully = false; /* Potentially log or notify player skill slots full */ }
-                                    } else { applied_successfully = false; /* Already has skill */ }
-                                } else { applied_successfully = false; /* Skill def not found */ }
+                                    if !already_has_skill { if player.equipped_skills.len() < crate::survivor::MAX_ACTIVE_SKILLS { 
+                                        player.equipped_skills.push(ActiveSkillInstance::new(*skill_id ));
+                                    } else { applied_successfully = false; }
+                                    } else { applied_successfully = false; }
+                                } else { applied_successfully = false; }
                             }
                         }
                         ItemEffect::ActivateCircleOfWarding { base_damage, base_radius, base_tick_interval } => {
                             if let Some(ref mut circle_aura) = opt_circle_aura {
-                                if !circle_aura.is_active {
+                                if !circle_aura.is_active { // First time activation
                                     circle_aura.is_active = true;
                                     circle_aura.base_damage_per_tick = *base_damage;
                                     circle_aura.current_radius = *base_radius;
                                     circle_aura.damage_tick_timer = Timer::from_seconds(*base_tick_interval, TimerMode::Repeating);
-                                } else { // If already active, collecting another of the same item could upgrade it
-                                    circle_aura.base_damage_per_tick += 1; // Example upgrade
+                                } else { // Upgrade if already active
+                                    circle_aura.base_damage_per_tick += 1; 
+                                    circle_aura.current_radius *= 1.05; // Example: 5% radius increase
                                 }
-                            } else { applied_successfully = false; /* Player doesn't have the component */ }
+                            } else { applied_successfully = false; }
                         }
                         ItemEffect::ActivateSwarmOfNightmares { num_larvae, base_damage, base_orbit_radius, base_rotation_speed } => {
                             if let Some(ref mut nightmare_swarm) = opt_nightmare_swarm {
-                                if !nightmare_swarm.is_active {
+                                if !nightmare_swarm.is_active { // First time activation
                                     nightmare_swarm.is_active = true;
                                     nightmare_swarm.num_larvae = *num_larvae;
                                     nightmare_swarm.damage_per_hit = *base_damage;
                                     nightmare_swarm.orbit_radius = *base_orbit_radius;
                                     nightmare_swarm.rotation_speed = *base_rotation_speed;
-                                } else { // Example upgrade
-                                    nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(5);
+                                } else { // Upgrade if already active
+                                    nightmare_swarm.num_larvae = (nightmare_swarm.num_larvae + 1).min(8); // Cap at 8 for example
                                     nightmare_swarm.damage_per_hit += 1;
                                 }
-                            } else { applied_successfully = false; /* Player doesn't have the component */ }
+                            } else { applied_successfully = false; }
                         }
-                        _ => {}
+                        _ => {} // Other effects like OnHit, OnKill are not applied here but checked elsewhere
                     }
                 }
                 if is_new_item && applied_successfully {
@@ -249,6 +260,6 @@ fn apply_collected_item_effects_system(
     }
 }
 
-fn explosion_effect_system( mut commands: Commands, time: Res<Time>, mut explosion_query: Query<(Entity, &mut ExplosionEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (explosion_entity, mut explosion, explosion_g_transform, mut sprite, mut vis_transform) in explosion_query.iter_mut() { explosion.timer.tick(time.delta()); let progress = explosion.timer.fraction(); let current_radius = explosion.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress); if explosion.timer.fraction() < 0.5 { let explosion_pos = explosion_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if explosion.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(explosion_pos) < explosion.radius_sq { horror_health.0 -= explosion.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explosion.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); explosion.already_hit_entities.push(horror_entity); } } } if explosion.timer.finished() { commands.entity(explosion_entity).despawn_recursive(); } } }
-fn retaliation_nova_effect_system( mut commands: Commands, time: Res<Time>, mut nova_query: Query<(Entity, &mut RetaliationNovaEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { nova.timer.tick(time.delta()); let progress = nova.timer.fraction(); let current_radius = nova.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress * progress); if nova.timer.fraction() < 0.3 { let nova_pos = nova_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if nova.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(nova_pos) < nova.radius_sq { horror_health.0 -= nova.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), nova.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); nova.already_hit_entities.push(horror_entity); } } } if nova.timer.finished() { commands.entity(nova_entity).despawn_recursive(); } } }
+fn explosion_effect_system( mut commands: Commands, time: Res<Time>, mut explosion_query: Query<(Entity, &mut ExplosionEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (explosion_entity, mut explosion, explosion_g_transform, mut sprite, mut vis_transform) in explosion_query.iter_mut() { explosion.timer.tick(time.delta()); let progress = explosion.timer.fraction(); let current_radius = explosion.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress); if explosion.timer.fraction() < 0.5 && !explosion.already_hit_entities.contains(&explosion_entity) { let explosion_pos = explosion_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if explosion.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(explosion_pos) < explosion.radius_sq { horror_health.0 -= explosion.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), explosion.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); explosion.already_hit_entities.push(horror_entity); } } if !explosion.already_hit_entities.contains(&explosion_entity){ explosion.already_hit_entities.push(explosion_entity);}} if explosion.timer.finished() { commands.entity(explosion_entity).despawn_recursive(); } } }
+fn retaliation_nova_effect_system( mut commands: Commands, time: Res<Time>, mut nova_query: Query<(Entity, &mut RetaliationNovaEffect, &GlobalTransform, &mut Sprite, &mut Transform)>, mut horror_query: Query<(Entity, &GlobalTransform, &mut Health), With<Horror>>, asset_server: Res<AssetServer>, mut sound_event_writer: EventWriter<PlaySoundEvent>,) { for (nova_entity, mut nova, nova_g_transform, mut sprite, mut vis_transform) in nova_query.iter_mut() { nova.timer.tick(time.delta()); let progress = nova.timer.fraction(); let current_radius = nova.radius_sq.sqrt(); vis_transform.scale = Vec3::splat(current_radius * 2.0 * progress); sprite.color.set_a(1.0 - progress * progress); if nova.timer.fraction() < 0.3 && !nova.already_hit_entities.contains(&nova_entity){ let nova_pos = nova_g_transform.translation().truncate(); for (horror_entity, horror_gtransform, mut horror_health) in horror_query.iter_mut() { if nova.already_hit_entities.contains(&horror_entity) { continue; } let horror_pos = horror_gtransform.translation().truncate(); if horror_pos.distance_squared(nova_pos) < nova.radius_sq { horror_health.0 -= nova.damage; spawn_damage_text(&mut commands, &asset_server, horror_gtransform.translation(), nova.damage, &time); sound_event_writer.send(PlaySoundEvent(SoundEffect::HorrorHit)); nova.already_hit_entities.push(horror_entity); } } if !nova.already_hit_entities.contains(&nova_entity){nova.already_hit_entities.push(nova_entity);}} if nova.timer.finished() { commands.entity(nova_entity).despawn_recursive(); } } }
 fn temporary_health_regen_buff_system( mut commands: Commands, time: Res<Time>, mut buff_query: Query<(Entity, &mut TemporaryHealthRegenBuff, &Survivor, &mut ComponentHealth)>,) { for (entity, mut buff, survivor_stats, mut health_component) in buff_query.iter_mut() { buff.duration_timer.tick(time.delta()); if buff.duration_timer.finished() { commands.entity(entity).remove::<TemporaryHealthRegenBuff>(); } else { let regen_amount = buff.regen_per_second * time.delta().as_secs_f32(); health_component.0 = (health_component.0 as f32 + regen_amount).round() as i32; health_component.0 = health_component.0.min(survivor_stats.max_health); } } }
